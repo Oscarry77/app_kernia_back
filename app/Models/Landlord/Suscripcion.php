@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Suscripcion extends Model
 {
+    // El pluralizador de Eloquent (reglas en inglés) no sabe que
+    // "suscripcion" -> "suscripciones"; adivina "suscripcions".
+    protected $table = 'suscripciones';
+
     public const ESTATUS_EN_APROVISIONAMIENTO = 'en_aprovisionamiento';
     public const ESTATUS_ACTIVO = 'activo';
     public const ESTATUS_SUSPENDIDO = 'suspendido';
@@ -80,6 +84,21 @@ class Suscripcion extends Model
             && $this->cliente?->estaActivo();
     }
 
+    /**
+     * Estatus que se devuelve en el `resolve` (guía §4.1): igual al
+     * almacenado salvo que la suscripción esté `activo` y el cliente no lo
+     * esté -- ahí se colapsa a `suspendido` sin que la app tenga que mirar
+     * el cliente por separado.
+     */
+    public function estatusEfectivo(): string
+    {
+        if ($this->estatus === self::ESTATUS_ACTIVO && ! $this->cliente?->estaActivo()) {
+            return self::ESTATUS_SUSPENDIDO;
+        }
+
+        return $this->estatus;
+    }
+
     public function datosConexion(): ?array
     {
         if (! $this->db_database) {
@@ -106,6 +125,6 @@ class Suscripcion extends Model
             return null;
         }
 
-        return $this->modulos()->where('activo', true)->pluck('modulo_clave')->all();
+        return $this->modulos()->where('activo', true)->orderBy('id')->pluck('modulo_clave')->all();
     }
 }

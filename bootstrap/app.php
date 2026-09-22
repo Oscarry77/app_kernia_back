@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'internal.token' => \App\Http\Middleware\VerificarTokenInterno::class,
+            'internal.token.producto' => \App\Http\Middleware\VerificarTokenProducto::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
