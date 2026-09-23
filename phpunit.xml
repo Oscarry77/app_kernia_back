@@ -32,5 +32,12 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- 22-sep-2026: sin esto, un test de aprovisionamiento en modo
+             dedicada usa las credenciales reales de .env y crea una base +
+             usuario de verdad en el MySQL de desarrollo (pasó una vez, ver
+             commit de este mismo día). Vacías aquí, SIEMPRE, para cualquier
+             test presente o futuro que toque TenantProvisioningService. -->
+        <env name="TENANT_PROVISION_DB_ADMIN_USERNAME" value=""/>
+        <env name="TENANT_PROVISION_DB_ADMIN_PASSWORD" value=""/>
     </php>
 </phpunit>
