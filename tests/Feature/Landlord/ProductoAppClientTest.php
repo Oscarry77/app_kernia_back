@@ -79,6 +79,31 @@ class ProductoAppClientTest extends TestCase
         (new ProductoAppClient())->provisionar($suscripcion, ['nombre' => 'A', 'email' => 'a@a.test', 'password_temporal' => 'x']);
     }
 
+    /**
+     * 22-sep-2026: una app cuya validación falla y redirige (302) a home en
+     * vez de responder JSON -- Guzzle sigue la redirección en silencio,
+     * termina en 200 + HTML, y `failed()` nunca es true (encontrado en la
+     * prueba real contra HRM). No debe interpretarse como éxito.
+     */
+    public function test_provisionar_rechaza_respuesta_200_que_no_es_json(): void
+    {
+        Http::fake(['*/api/internal/v1/provision' => Http::response('<!DOCTYPE html><title>Laravel</title>', 200, ['Content-Type' => 'text/html; charset=utf-8'])]);
+        $suscripcion = $this->crearSuscripcion(Producto::MODO_COMPARTIDA);
+
+        $this->expectException(RuntimeException::class);
+        (new ProductoAppClient())->provisionar($suscripcion, ['nombre' => 'A', 'email' => 'a@a.test', 'password_temporal' => 'x']);
+    }
+
+    public function test_provisionar_manda_accept_json_y_no_sigue_redirecciones(): void
+    {
+        Http::fake(['*/api/internal/v1/provision' => Http::response(['ref_externa' => null], 200)]);
+        $suscripcion = $this->crearSuscripcion(Producto::MODO_COMPARTIDA);
+
+        (new ProductoAppClient())->provisionar($suscripcion, ['nombre' => 'A', 'email' => 'a@a.test', 'password_temporal' => 'x']);
+
+        Http::assertSent(fn ($request) => $request->hasHeader('Accept', 'application/json'));
+    }
+
     public function test_notificar_estatus_manda_el_body_esperado(): void
     {
         Http::fake(['*/api/internal/v1/clientes/*/estatus' => Http::response('', 204)]);

@@ -54,7 +54,7 @@ class SuscripcionOnboardingService
             ...$datosConexion,
         ]);
 
-        $passwordTemporal = Str::random(16);
+        $passwordTemporal = self::generarPasswordTemporal();
 
         try {
             $refExterna = $this->appClient->provisionar($suscripcion, [
@@ -129,5 +129,32 @@ class SuscripcionOnboardingService
         $slugLimpio = preg_replace('/[^a-z0-9]/', '', strtolower($slugCliente));
 
         return "{$prefijoDb}_{$slugLimpio}";
+    }
+
+    /**
+     * `Str::random()` no garantiza mayúscula+minúscula+número -- encontrado
+     * en la prueba real contra HRM (22-sep-2026): su validación de
+     * complejidad rechazó una temporal generada así, aunque era poco
+     * probable, no imposible. Se garantiza aquí, no solo se espera por azar.
+     */
+    public static function generarPasswordTemporal(): string
+    {
+        $mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $minusculas = 'abcdefghijkmnpqrstuvwxyz';
+        $numeros = '23456789';
+        // Símbolos seguros en JSON/shell/URL -- sin comillas, backslash ni &.
+        $simbolos = '!@#%*-_=+';
+
+        $obligatorios = [
+            $mayusculas[random_int(0, strlen($mayusculas) - 1)],
+            $minusculas[random_int(0, strlen($minusculas) - 1)],
+            $numeros[random_int(0, strlen($numeros) - 1)],
+            $simbolos[random_int(0, strlen($simbolos) - 1)],
+        ];
+
+        $caracteres = array_merge($obligatorios, str_split(Str::random(12)));
+        shuffle($caracteres);
+
+        return implode('', $caracteres);
     }
 }

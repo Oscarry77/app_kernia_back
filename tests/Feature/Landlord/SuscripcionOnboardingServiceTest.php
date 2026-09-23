@@ -95,4 +95,23 @@ class SuscripcionOnboardingServiceTest extends TestCase
         $this->assertSame('svi_pruebasvi', SuscripcionOnboardingService::nombreBaseDatos('svi', 'prueba-svi'));
         $this->assertSame('com_labormx', SuscripcionOnboardingService::nombreBaseDatos('com', 'labormx'));
     }
+
+    /**
+     * 22-sep-2026: Str::random() no garantiza mayúscula+minúscula+número --
+     * la validación de complejidad de HRM rechazó una temporal generada así
+     * en la prueba real. Se corre muchas veces porque es una garantía
+     * estructural, no algo que una sola corrida pueda demostrar por azar.
+     */
+    public function test_password_temporal_siempre_cumple_complejidad_minima(): void
+    {
+        for ($i = 0; $i < 200; $i++) {
+            $password = SuscripcionOnboardingService::generarPasswordTemporal();
+
+            $this->assertSame(16, strlen($password));
+            $this->assertMatchesRegularExpression('/[A-Z]/', $password);
+            $this->assertMatchesRegularExpression('/[a-z]/', $password);
+            $this->assertMatchesRegularExpression('/[0-9]/', $password);
+            $this->assertMatchesRegularExpression('/[!@#%*\-_=+]/', $password);
+        }
+    }
 }

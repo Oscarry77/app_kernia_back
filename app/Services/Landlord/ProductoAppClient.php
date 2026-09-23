@@ -3,6 +3,7 @@ namespace App\Services\Landlord;
 
 use App\Models\Landlord\Producto;
 use App\Models\Landlord\Suscripcion;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -12,6 +13,14 @@ use RuntimeException;
  * bridge-com-api) para las 3 apps. Usa siempre el prefijo /api/internal/v1,
  * confirmado como el que las 3 apps exponen (bare + alias /api, ver
  * RESPUESTA_KERNIA_A_HRM_2026-09-22.md y RESPUESTA_KERNIA_A_SVI_2026-09-22.md).
+ *
+ * Fuerza `Accept: application/json` y no sigue redirecciones (22-sep-2026):
+ * con el token real de HRM, una validación fallida en su ProvisionController
+ * respondía con un 302 a "/" en vez de un 422 JSON -- Guzzle lo seguía en
+ * silencio, `failed()` nunca era true (3xx no cuenta como error), y
+ * `provisionar()` interpretaba la página de bienvenida como éxito. Ver
+ * RESPUESTA_HRM_A_CATALOGO_PLANES_KERNIA_2026-09-22.md y el hallazgo del
+ * mismo día en la prueba real contra HRM.
  */
 class ProductoAppClient
 {
@@ -37,27 +46,18 @@ class ProductoAppClient
             $payload['conexion'] = $suscripcion->datosConexion();
         }
 
-        $respuesta = Http::withHeaders([
-                'X-Internal-Token' => $producto->token_interno,
-                'Idempotency-Key' => "suscripcion-{$suscripcion->id}-provision",
-            ])
+        $respuesta = $this->cliente($producto, ['Idempotency-Key' => "suscripcion-{$suscripcion->id}-provision"])
             ->timeout(120)
             ->post($this->url($producto, 'provision'), $payload);
 
-        if ($respuesta->failed()) {
-            throw new RuntimeException(
-                "provision falló en '{$producto->slug}' ({$respuesta->status()}): {$respuesta->body()}"
-            );
-        }
-
-        return $respuesta->json('ref_externa');
+        return $this->asegurarJson($respuesta, $producto, 'provision')['ref_externa'] ?? null;
     }
 
     public function notificarEstatus(Suscripcion $suscripcion, string $estatus, ?string $motivo = null): void
     {
         $producto = $suscripcion->producto;
 
-        $respuesta = Http::withHeaders(['X-Internal-Token' => $producto->token_interno])
+        $respuesta = $this->cliente($producto)
             ->timeout(30)
             ->patch($this->url($producto, "clientes/{$suscripcion->cliente->slug}/estatus"), [
                 'estatus' => $estatus,
@@ -65,7 +65,7 @@ class ProductoAppClient
                 'efectivo_desde' => now()->toIso8601String(),
             ]);
 
-        if ($respuesta->failed()) {
+        if ($respuesta->failed() || $respuesta->status() >= 300) {
             throw new RuntimeException(
                 "Notificación de estatus falló en '{$producto->slug}' ({$respuesta->status()}): {$respuesta->body()}"
             );
@@ -78,27 +78,52 @@ class ProductoAppClient
         $producto = $suscripcion->producto;
 
         try {
-            $respuesta = Http::withHeaders(['X-Internal-Token' => $producto->token_interno])
-                ->timeout(15)
-                ->get($this->url($producto, "metricas/{$suscripcion->cliente->slug}"));
+            $respuesta = $this->cliente($producto)->timeout(15)->get($this->url($producto, "metricas/{$suscripcion->cliente->slug}"));
+
+            return $this->asegurarJson($respuesta, $producto, 'metricas', lanzar: false) ?? ['ok' => false];
         } catch (\Throwable) {
             return ['ok' => false];
         }
-
-        return $respuesta->failed() ? ['ok' => false] : $respuesta->json();
     }
 
     public function health(Producto $producto): array
     {
         try {
-            $respuesta = Http::withHeaders(['X-Internal-Token' => $producto->token_interno])
-                ->timeout(10)
-                ->get($this->url($producto, 'health'));
+            $respuesta = $this->cliente($producto)->timeout(10)->get($this->url($producto, 'health'));
+
+            return $this->asegurarJson($respuesta, $producto, 'health', lanzar: false) ?? ['ok' => false];
         } catch (\Throwable) {
             return ['ok' => false];
         }
+    }
 
-        return $respuesta->failed() ? ['ok' => false] : $respuesta->json();
+    private function cliente(Producto $producto, array $headersExtra = [])
+    {
+        return Http::withHeaders(['X-Internal-Token' => $producto->token_interno, ...$headersExtra])
+            ->acceptJson()
+            ->withOptions(['allow_redirects' => false]);
+    }
+
+    /**
+     * Guzzle no sigue esta redirección (allow_redirects=false), pero un 3xx
+     * tampoco cuenta como `failed()` en Laravel -- se valida aquí de forma
+     * explícita que la respuesta sea realmente JSON antes de confiar en ella.
+     */
+    private function asegurarJson(Response $respuesta, Producto $producto, string $endpoint, bool $lanzar = true): ?array
+    {
+        $esJson = str_contains($respuesta->header('Content-Type') ?? '', 'json');
+
+        if ($respuesta->failed() || $respuesta->status() >= 300 || ! $esJson) {
+            if (! $lanzar) {
+                return null;
+            }
+
+            throw new RuntimeException(
+                "{$endpoint} falló en '{$producto->slug}' ({$respuesta->status()}, content-type=".($respuesta->header('Content-Type') ?? 'ninguno')."): ".substr($respuesta->body(), 0, 300)
+            );
+        }
+
+        return $respuesta->json();
     }
 
     private function url(Producto $producto, string $ruta): string
