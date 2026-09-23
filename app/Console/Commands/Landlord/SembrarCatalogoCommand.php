@@ -8,34 +8,39 @@ use Illuminate\Support\Str;
 
 class SembrarCatalogoCommand extends Command
 {
-    protected $signature = 'landlord:sembrar-catalogo';
+    protected $signature = 'landlord:sembrar-catalogo
+        {--comercializa-url= : base_url_interna de Comercializa (default dev: http://127.0.0.1:8100)}
+        {--hrm-url= : base_url_interna de Bridge HRM (default dev: http://127.0.0.1:8300)}
+        {--svi-url= : base_url_interna de Bridge SVI (default dev: http://127.0.0.1:8400)}';
 
-    protected $description = 'Siembra el catálogo de productos (comercializa/hrm/svi) y los módulos de Comercializa. Idempotente: no regenera token_interno si el producto ya existe.';
+    protected $description = 'Siembra el catálogo de productos (comercializa/hrm/svi) y los módulos de Comercializa. Idempotente: no regenera token_interno si el producto ya existe. Las URLs son por ambiente -- pásalas por opción al correr esto en QA/producción, no edites los defaults de dev.';
 
-    /** @var array<int, array{slug:string,nombre:string,base_url_interna:string,modo_datos:string,prefijo_db:?string}> */
-    private const PRODUCTOS = [
-        [
-            'slug' => 'comercializa',
-            'nombre' => 'Comercializa',
-            'base_url_interna' => 'http://127.0.0.1:8100',
-            'modo_datos' => Producto::MODO_DEDICADA,
-            'prefijo_db' => 'com',
-        ],
-        [
-            'slug' => 'hrm',
-            'nombre' => 'Bridge HRM',
-            'base_url_interna' => 'http://127.0.0.1:8300',
-            'modo_datos' => Producto::MODO_COMPARTIDA,
-            'prefijo_db' => null,
-        ],
-        [
-            'slug' => 'svi',
-            'nombre' => 'Bridge SVI',
-            'base_url_interna' => 'http://127.0.0.1:8400',
-            'modo_datos' => Producto::MODO_DEDICADA,
-            'prefijo_db' => 'svi',
-        ],
-    ];
+    private function productos(): array
+    {
+        return [
+            [
+                'slug' => 'comercializa',
+                'nombre' => 'Comercializa',
+                'base_url_interna' => $this->option('comercializa-url') ?: 'http://127.0.0.1:8100',
+                'modo_datos' => Producto::MODO_DEDICADA,
+                'prefijo_db' => 'com',
+            ],
+            [
+                'slug' => 'hrm',
+                'nombre' => 'Bridge HRM',
+                'base_url_interna' => $this->option('hrm-url') ?: 'http://127.0.0.1:8300',
+                'modo_datos' => Producto::MODO_COMPARTIDA,
+                'prefijo_db' => null,
+            ],
+            [
+                'slug' => 'svi',
+                'nombre' => 'Bridge SVI',
+                'base_url_interna' => $this->option('svi-url') ?: 'http://127.0.0.1:8400',
+                'modo_datos' => Producto::MODO_DEDICADA,
+                'prefijo_db' => 'svi',
+            ],
+        ];
+    }
 
     /** Mapa validado en RESPUESTA_COMERCIALIZA_A_KERNIA_2026-09-22.md §3. */
     private const MODULOS_COMERCIALIZA = [
@@ -50,7 +55,7 @@ class SembrarCatalogoCommand extends Command
     {
         $tokensNuevos = [];
 
-        foreach (self::PRODUCTOS as $datos) {
+        foreach ($this->productos() as $datos) {
             $producto = Producto::where('slug', $datos['slug'])->first();
 
             if ($producto) {
