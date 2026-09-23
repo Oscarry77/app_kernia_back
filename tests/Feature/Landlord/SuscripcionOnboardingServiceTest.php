@@ -89,4 +89,10 @@ class SuscripcionOnboardingServiceTest extends TestCase
 
         Http::assertNothingSent();
     }
+
+    public function test_slug_con_guion_no_rompe_el_nombre_de_base_de_datos(): void
+    {
+        $this->assertSame('svi_pruebasvi', SuscripcionOnboardingService::nombreBaseDatos('svi', 'prueba-svi'));
+        $this->assertSame('com_labormx', SuscripcionOnboardingService::nombreBaseDatos('com', 'labormx'));
+    }
 }

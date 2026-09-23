@@ -93,8 +93,8 @@ class SuscripcionOnboardingService
 
         $host = env('TENANT_PROVISION_DB_HOST', '127.0.0.1');
         $puerto = (int) env('TENANT_PROVISION_DB_PORT', 3306);
-        $baseDatos = "{$producto->prefijo_db}_{$cliente->slug}";
-        $usuarioApp = TenantProvisioningService::generarUsuario("{$producto->prefijo_db}_{$cliente->slug}", 'app');
+        $baseDatos = self::nombreBaseDatos($producto->prefijo_db, $cliente->slug);
+        $usuarioApp = TenantProvisioningService::generarUsuario($baseDatos, 'app');
         $passwordApp = TenantProvisioningService::generarPassword();
 
         TenantProvisioningService::crearBaseYUsuarios(
@@ -116,5 +116,18 @@ class SuscripcionOnboardingService
             'db_username' => $usuarioApp,
             'db_password' => $passwordApp,
         ];
+    }
+
+    /**
+     * `clientes.slug` admite guiones (guía §2: 3-63 [a-z0-9-]), pero un
+     * identificador de base de datos no -- se limpia aquí, nunca en el slug
+     * mismo (ese sigue siendo el de cara al cliente/URL). Público y estático
+     * para poder probarlo sin tocar MySQL.
+     */
+    public static function nombreBaseDatos(string $prefijoDb, string $slugCliente): string
+    {
+        $slugLimpio = preg_replace('/[^a-z0-9]/', '', strtolower($slugCliente));
+
+        return "{$prefijoDb}_{$slugLimpio}";
     }
 }
