@@ -108,7 +108,10 @@ class Suscripcion extends Model
         return [
             'db_driver'   => $this->db_driver,
             'db_host'     => $this->db_host,
-            'db_port'     => $this->db_port,
+            // Entero, como en la guía §4.1 y como ya lo mandaba el alias
+            // legacy -- se guarda como string en la columna (consistente con
+            // Tenant), pero se normaliza aquí al armar la respuesta.
+            'db_port'     => (int) $this->db_port,
             'db_database' => $this->db_database,
             'db_username' => $this->db_username,
             'db_password' => $this->db_password,

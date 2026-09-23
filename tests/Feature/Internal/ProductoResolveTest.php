@@ -53,6 +53,8 @@ class ProductoResolveTest extends TestCase
             'aviso' => null,
         ]);
         $response->assertJsonPath('conexion.db_database', 'kernia_labormx');
+        $response->assertJsonPath('conexion.db_port', 3306);
+        $this->assertIsInt($response->json('conexion.db_port'), 'db_port debe ir como entero (guía §4.1), no string.');
         $response->assertJsonMissingPath('modulos');
     }
 
