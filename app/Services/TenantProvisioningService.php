@@ -86,6 +86,26 @@ class TenantProvisioningService
         };
     }
 
+    /**
+     * Crea (o reemplaza, con nueva contraseña) el usuario "app" acotado de
+     * una base MySQL que ya existe. Para rotar credenciales o para sacar de
+     * una suscripción credenciales que no debían estar ahí (28-sep-2026:
+     * `demo-svi` apuntaba a `root`).
+     */
+    public static function reemplazarUsuarioAppMysql(
+        string $host,
+        int $puerto,
+        string $adminUsuario,
+        string $adminPassword,
+        string $baseDatos,
+        string $usuarioApp,
+        string $passwordApp,
+    ): void {
+        $pdo = self::conectarAdmin('mysql', $host, $puerto, $adminUsuario, $adminPassword);
+
+        self::crearUsuarioMysql($pdo, $usuarioApp, $passwordApp, self::identificadorSeguro($baseDatos), soloLectura: false);
+    }
+
     private static function conectarAdmin(string $driver, string $host, int $puerto, string $usuario, string $password): PDO
     {
         $dsn = $driver === 'mysql'
@@ -113,20 +133,33 @@ class TenantProvisioningService
             self::crearUsuarioMysql($pdo, $usuarioBi, $passwordBi, $db, soloLectura: true);
         }
 
-        $pdo->exec('FLUSH PRIVILEGES');
+        // Sin FLUSH PRIVILEGES (28-sep-2026): CREATE USER/GRANT ya aplican
+        // de inmediato en MySQL 8, y FLUSH exige el privilegio global RELOAD
+        // que el usuario acotado `kernia_provisioner` no tiene (ni necesita).
     }
 
     private static function crearUsuarioMysql(PDO $pdo, string $usuario, string $password, string $db, bool $soloLectura): void
     {
         $u = self::identificadorSeguro($usuario);
 
+        // Host desde el que el usuario del cliente puede conectarse. '%' en
+        // dev; en QA/producción, la IP o subred privada de los servidores de
+        // las apps (28-sep-2026, lineamientos de seguridad SaaS).
+        $h = self::identificadorSeguro(env('TENANT_PROVISION_DB_USER_HOST', '%'), '%.');
+
         // DROP + CREATE (no ALTER) para que "reemplazar" un usuario BI
         // existente (rotación) sea idempotente sin heredar grants viejos.
-        $pdo->exec("DROP USER IF EXISTS '{$u}'@'%'");
-        $pdo->exec("CREATE USER '{$u}'@'%' IDENTIFIED BY ".$pdo->quote($password));
+        $pdo->exec("DROP USER IF EXISTS '{$u}'@'{$h}'");
+        $pdo->exec("CREATE USER '{$u}'@'{$h}' IDENTIFIED BY ".$pdo->quote($password));
+
+        // En GRANT, `_` es comodín: `svi_x` sería el patrón `svi?x`, más amplio
+        // que la base real. Se escapa para otorgar SOLO esa base -- y porque
+        // `kernia_provisioner` (acotado a `svi\_%`, etc.) no puede otorgar un
+        // patrón más amplio que el suyo (error 1044, 28-sep-2026).
+        $dbExacta = self::patronGrantExacto($db);
 
         $privilegio = $soloLectura ? 'SELECT' : 'ALL PRIVILEGES';
-        $pdo->exec("GRANT {$privilegio} ON `{$db}`.* TO '{$u}'@'%'");
+        $pdo->exec("GRANT {$privilegio} ON `{$dbExacta}`.* TO '{$u}'@'{$h}'");
     }
 
     private static function crearSqlServer(
@@ -187,9 +220,16 @@ class TenantProvisioningService
         $pdo->exec('USE [master]');
     }
 
-    private static function identificadorSeguro(string $valor): string
+    /** Nombre de base para GRANT sin comodines (`_` y `%` escapados). Público para probarlo sin MySQL. */
+    public static function patronGrantExacto(string $baseDatos): string
     {
-        if (! preg_match('/^[A-Za-z0-9_]+$/', $valor)) {
+        return str_replace(['_', '%'], ['\_', '\%'], $baseDatos);
+    }
+
+    /** @param string $extra caracteres adicionales permitidos (p. ej. '%.' para un host MySQL) */
+    private static function identificadorSeguro(string $valor, string $extra = ''): string
+    {
+        if (! preg_match('/^[A-Za-z0-9_'.preg_quote($extra, '/').']+$/', $valor)) {
             throw new InvalidArgumentException("Identificador inválido para provisión de base de datos: {$valor}");
         }
 

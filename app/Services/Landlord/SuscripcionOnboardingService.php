@@ -36,7 +36,7 @@ class SuscripcionOnboardingService
     {
         if (Suscripcion::where('cliente_id', $cliente->id)->where('producto_id', $producto->id)->exists()) {
             throw new RuntimeException(
-                "Ya existe una suscripción de '{$cliente->slug}' a '{$producto->slug}'."
+                "Ya existe una suscripción de '{$cliente->slug}' a '{$producto->slug}'. Si quedó 'fallido', usa landlord:reintentar-aprovisionamiento."
             );
         }
 
@@ -54,13 +54,53 @@ class SuscripcionOnboardingService
             ...$datosConexion,
         ]);
 
-        $passwordTemporal = self::generarPasswordTemporal();
+        return $this->llamarProvision($suscripcion, $adminInicial['nombre']);
+    }
 
+    /**
+     * Reintenta una suscripción `fallido` con el MISMO Idempotency-Key
+     * (`suscripcion-{id}-provision`): la app no duplica tenant/base/semillas.
+     * La password temporal sí es nueva -- Kernia no la guarda; la app debe
+     * ignorarla si el tenant ya existe (RESPUESTA_KERNIA_A_HRM_MULTITENANT
+     * _2026-09-28.md §3.5). La base dedicada, si aplica, ya se creó en el
+     * primer intento y no se vuelve a crear.
+     */
+    public function reintentar(Suscripcion $suscripcion, string $adminNombre): Suscripcion
+    {
+        if ($suscripcion->estatus !== Suscripcion::ESTATUS_FALLIDO) {
+            throw new RuntimeException(
+                "Solo se reintenta una suscripción 'fallido' (id={$suscripcion->id} está '{$suscripcion->estatus}')."
+            );
+        }
+
+        $suscripcion->update(['estatus' => Suscripcion::ESTATUS_EN_APROVISIONAMIENTO]);
+
+        return $this->llamarProvision($suscripcion, $adminNombre);
+    }
+
+    /**
+     * Polling de un aprovisionamiento asíncrono. Devuelve la suscripción con
+     * su estatus actualizado; si la app aún no la conoce (404) o sigue
+     * preparando la base, no cambia nada.
+     */
+    public function sincronizar(Suscripcion $suscripcion): Suscripcion
+    {
+        $cuerpo = $this->appClient->estadoAprovisionamiento($suscripcion);
+
+        if ($cuerpo !== null) {
+            $this->aplicarRespuesta($suscripcion, $cuerpo);
+        }
+
+        return $suscripcion->fresh();
+    }
+
+    private function llamarProvision(Suscripcion $suscripcion, string $adminNombre): Suscripcion
+    {
         try {
-            $refExterna = $this->appClient->provisionar($suscripcion, [
-                'nombre' => $adminInicial['nombre'],
-                'email' => $adminInicial['email'],
-                'password_temporal' => $passwordTemporal,
+            $cuerpo = $this->appClient->provisionar($suscripcion, [
+                'nombre' => $adminNombre,
+                'email' => $suscripcion->admin_email,
+                'password_temporal' => self::generarPasswordTemporal(),
             ]);
         } catch (Throwable $e) {
             $suscripcion->update(['estatus' => Suscripcion::ESTATUS_FALLIDO]);
@@ -70,13 +110,33 @@ class SuscripcionOnboardingService
             );
         }
 
-        $suscripcion->update([
-            'estatus' => Suscripcion::ESTATUS_ACTIVO,
-            'ref_externa' => $refExterna,
-            'provisionada_en' => now(),
-        ]);
+        $this->aplicarRespuesta($suscripcion, $cuerpo);
 
         return $suscripcion->fresh();
+    }
+
+    /**
+     * `status` en el nivel superior decide (28-sep-2026, HRM asíncrono):
+     * ready -> activo; pending/provisioning -> se queda en aprovisionamiento
+     * (lo cierra el polling); failed -> fallido. Sin `status` es una app
+     * síncrona (Comercializa, SVI): 2xx ya significa listo.
+     */
+    private function aplicarRespuesta(Suscripcion $suscripcion, array $cuerpo): void
+    {
+        $status = $cuerpo['status'] ?? 'ready';
+        $cambios = [];
+
+        if (isset($cuerpo['ref_externa'])) {
+            $cambios['ref_externa'] = (string) $cuerpo['ref_externa'];
+        }
+
+        $cambios += match ($status) {
+            'ready' => ['estatus' => Suscripcion::ESTATUS_ACTIVO, 'provisionada_en' => now()],
+            'failed' => ['estatus' => Suscripcion::ESTATUS_FALLIDO],
+            default => ['estatus' => Suscripcion::ESTATUS_EN_APROVISIONAMIENTO],
+        };
+
+        $suscripcion->update($cambios);
     }
 
     /** @return array<string,string> columnas db_* para Suscripcion::create() */

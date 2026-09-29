@@ -26,9 +26,11 @@ class ProductoAppClient
 {
     /**
      * @param array{nombre:string, email:string, password_temporal:string} $adminInicial
-     * @return string|null ref_externa que devuelve la app (null si no aplica)
+     * @return array cuerpo JSON de la app: `ref_externa` y, si la app
+     *               aprovisiona de forma asíncrona, `status` (ver
+     *               RESPUESTA_KERNIA_A_HRM_MULTITENANT_2026-09-28.md §3.3)
      */
-    public function provisionar(Suscripcion $suscripcion, array $adminInicial): ?string
+    public function provisionar(Suscripcion $suscripcion, array $adminInicial): array
     {
         $producto = $suscripcion->producto;
 
@@ -50,7 +52,27 @@ class ProductoAppClient
             ->timeout(120)
             ->post($this->url($producto, 'provision'), $payload);
 
-        return $this->asegurarJson($respuesta, $producto, 'provision')['ref_externa'] ?? null;
+        return $this->asegurarJson($respuesta, $producto, 'provision') ?? [];
+    }
+
+    /**
+     * Estado de un aprovisionamiento asíncrono (28-sep-2026, HRM con base por
+     * cliente). Mismo cuerpo que `provision`. Devuelve null si la app aún no
+     * conoce al cliente (404); lanza ante cualquier otro error.
+     */
+    public function estadoAprovisionamiento(Suscripcion $suscripcion): ?array
+    {
+        $producto = $suscripcion->producto;
+
+        $respuesta = $this->cliente($producto)
+            ->timeout(15)
+            ->get($this->url($producto, "provision/{$suscripcion->cliente->id}/status"));
+
+        if ($respuesta->status() === 404) {
+            return null;
+        }
+
+        return $this->asegurarJson($respuesta, $producto, 'provision/status');
     }
 
     public function notificarEstatus(Suscripcion $suscripcion, string $estatus, ?string $motivo = null): void

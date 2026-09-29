@@ -114,4 +114,63 @@ class SuscripcionOnboardingServiceTest extends TestCase
             $this->assertMatchesRegularExpression('/[!@#%*\-_=+]/', $password);
         }
     }
+
+    /**
+     * 28-sep-2026: HRM aprovisiona su base por cliente de forma asíncrona.
+     * Un 2xx con `status: provisioning` NO es `activo` -- lo cierra el polling.
+     */
+    public function test_provision_asincrona_queda_en_aprovisionamiento_y_el_polling_la_activa(): void
+    {
+        $cliente = Cliente::create(['slug' => 'acme', 'nombre' => 'Acme', 'estatus' => Cliente::ESTATUS_ACTIVO]);
+        $producto = $this->crearProductoCompartida();
+        Http::fake([
+            '*/api/internal/v1/provision' => Http::response(['ref_externa' => '125', 'status' => 'provisioning'], 202),
+            "*/api/internal/v1/provision/{$cliente->id}/status" => Http::sequence()
+                ->push(['ref_externa' => '125', 'status' => 'provisioning'], 200)
+                ->push(['ref_externa' => '125', 'status' => 'ready'], 200),
+        ]);
+        $servicio = app(SuscripcionOnboardingService::class);
+
+        $suscripcion = $servicio->aprovisionar($cliente, $producto, ['nombre' => 'Admin', 'email' => 'admin@acme.test'], 'basico');
+        $this->assertSame(Suscripcion::ESTATUS_EN_APROVISIONAMIENTO, $suscripcion->estatus);
+        $this->assertSame('125', $suscripcion->ref_externa);
+        $this->assertNull($suscripcion->provisionada_en);
+
+        $this->assertSame(Suscripcion::ESTATUS_EN_APROVISIONAMIENTO, $servicio->sincronizar($suscripcion)->estatus);
+
+        $suscripcion = $servicio->sincronizar($suscripcion);
+        $this->assertSame(Suscripcion::ESTATUS_ACTIVO, $suscripcion->estatus);
+        $this->assertNotNull($suscripcion->provisionada_en);
+    }
+
+    public function test_status_failed_deja_fallido_y_reintentar_usa_el_mismo_idempotency_key(): void
+    {
+        $cliente = Cliente::create(['slug' => 'acme', 'nombre' => 'Acme', 'estatus' => Cliente::ESTATUS_ACTIVO]);
+        $producto = $this->crearProductoCompartida();
+        Http::fake(['*/api/internal/v1/provision' => Http::sequence()
+            ->push(['ref_externa' => '125', 'status' => 'failed'], 201)
+            ->push(['ref_externa' => '125', 'status' => 'ready'], 200)]);
+        $servicio = app(SuscripcionOnboardingService::class);
+
+        $suscripcion = $servicio->aprovisionar($cliente, $producto, ['nombre' => 'Admin', 'email' => 'admin@acme.test'], 'basico');
+        $this->assertSame(Suscripcion::ESTATUS_FALLIDO, $suscripcion->estatus);
+
+        $suscripcion = $servicio->reintentar($suscripcion, 'Admin');
+        $this->assertSame(Suscripcion::ESTATUS_ACTIVO, $suscripcion->estatus);
+
+        $llaves = Http::recorded()->map(fn ($par) => $par[0]->header('Idempotency-Key')[0])->unique();
+        $this->assertCount(1, $llaves);
+        $this->assertSame("suscripcion-{$suscripcion->id}-provision", $llaves->first());
+    }
+
+    public function test_reintentar_rechaza_suscripcion_que_no_esta_fallido(): void
+    {
+        Http::fake();
+        $cliente = Cliente::create(['slug' => 'acme', 'nombre' => 'Acme', 'estatus' => Cliente::ESTATUS_ACTIVO]);
+        $producto = $this->crearProductoCompartida();
+        $suscripcion = Suscripcion::create(['cliente_id' => $cliente->id, 'producto_id' => $producto->id, 'estatus' => Suscripcion::ESTATUS_ACTIVO]);
+
+        $this->expectException(RuntimeException::class);
+        app(SuscripcionOnboardingService::class)->reintentar($suscripcion, 'Admin');
+    }
 }

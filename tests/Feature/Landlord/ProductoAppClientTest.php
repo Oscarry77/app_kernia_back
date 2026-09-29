@@ -41,11 +41,11 @@ class ProductoAppClientTest extends TestCase
         Http::fake(['*/api/internal/v1/provision' => Http::response(['ref_externa' => '42'], 200)]);
         $suscripcion = $this->crearSuscripcion(Producto::MODO_COMPARTIDA);
 
-        $ref = (new ProductoAppClient())->provisionar($suscripcion, [
+        $cuerpo = (new ProductoAppClient())->provisionar($suscripcion, [
             'nombre' => 'Admin', 'email' => 'admin@acme.test', 'password_temporal' => 'temp123',
         ]);
 
-        $this->assertSame('42', $ref);
+        $this->assertSame('42', $cuerpo['ref_externa']);
         Http::assertSent(function ($request) {
             return $request->url() === 'http://127.0.0.1:8300/api/internal/v1/provision'
                 && $request->hasHeader('X-Internal-Token', 'token-hrm')
@@ -145,5 +145,18 @@ class ProductoAppClientTest extends TestCase
         ]);
 
         $this->assertSame(['ok' => false], (new ProductoAppClient())->health($producto));
+    }
+
+    public function test_estado_aprovisionamiento_consulta_por_cliente_id_y_404_devuelve_null(): void
+    {
+        $suscripcion = $this->crearSuscripcion(Producto::MODO_COMPARTIDA);
+        $url = "http://127.0.0.1:8300/api/internal/v1/provision/{$suscripcion->cliente->id}/status";
+
+        Http::fake([$url => Http::sequence()
+            ->push(['status' => 'ready'], 200)
+            ->push(['message' => 'no existe'], 404)]);
+
+        $this->assertSame('ready', (new ProductoAppClient())->estadoAprovisionamiento($suscripcion)['status']);
+        $this->assertNull((new ProductoAppClient())->estadoAprovisionamiento($suscripcion));
     }
 }
