@@ -44,6 +44,13 @@ class SuscripcionOnboardingService
             );
         }
 
+        // Estándar v2.1: con catálogo de planes, el plan es obligatorio y se
+        // valida ANTES de crear base o llamar a la app.
+        if ($producto->usaPlanes() && ! $producto->plan($plan)) {
+            $validos = $producto->planes()->where('activo', true)->orderBy('orden')->pluck('codigo')->implode(', ');
+            throw new RuntimeException("'{$producto->slug}' requiere un plan válido (--plan=). Válidos: {$validos}.");
+        }
+
         $datosConexion = $producto->esDedicada()
             ? $this->crearBaseDedicada($cliente, $producto)
             : [];
@@ -57,6 +64,11 @@ class SuscripcionOnboardingService
             'fecha_contratacion' => now()->toDateString(),
             ...$datosConexion,
         ]);
+
+        // Los módulos salen del plan (v2.1), nunca se eligen a mano.
+        if ($producto->usaPlanes()) {
+            app(SuscripcionPlanService::class)->aplicarPlan($suscripcion, $plan);
+        }
 
         return $this->llamarProvision($suscripcion, $adminInicial['nombre'], $adminInicial['password_temporal'] ?? null);
     }

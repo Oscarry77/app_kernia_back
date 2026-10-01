@@ -80,6 +80,12 @@ class Suscripcion extends Model
         return $this->hasMany(SuscripcionModulo::class);
     }
 
+    /** Bitácora de extras contratados (+n / -n). */
+    public function extras(): HasMany
+    {
+        return $this->hasMany(SuscripcionExtra::class);
+    }
+
     /**
      * Estatus efectivo: suspendida si el cliente está suspendido, aunque la
      * suscripción esté `activo` (guía §2).

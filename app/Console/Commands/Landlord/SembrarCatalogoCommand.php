@@ -2,7 +2,9 @@
 namespace App\Console\Commands\Landlord;
 
 use App\Models\Landlord\Producto;
+use App\Models\Landlord\ProductoExtra;
 use App\Models\Landlord\ProductoModulo;
+use App\Models\Landlord\ProductoPlan;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -51,6 +53,45 @@ class SembrarCatalogoCommand extends Command
         'viaticos' => 'Viáticos',
     ];
 
+    /**
+     * Estándar v2.1 (01-oct-2026, decisión del dueño). La edición define los
+     * módulos (Viáticos solo existe junto con Tesorería) y las empresas base;
+     * se suman empresas adicionales. null = sin límite.
+     */
+    private const PLANES = [
+        'comercializa' => [
+            ['codigo' => 'basico', 'nombre' => 'Backoffice Básico', 'orden' => 1,
+                'modulos' => ['ventas', 'compras', 'inventarios'], 'limites' => ['max_empresas' => 4]],
+            ['codigo' => 'profesional', 'nombre' => 'Backoffice Profesional', 'orden' => 2,
+                'modulos' => ['ventas', 'compras', 'inventarios', 'tesoreria'], 'limites' => ['max_empresas' => 8]],
+            ['codigo' => 'corporativo', 'nombre' => 'Backoffice Corporativo', 'orden' => 3,
+                'modulos' => ['ventas', 'compras', 'inventarios', 'tesoreria', 'viaticos'], 'limites' => ['max_empresas' => 10]],
+        ],
+        // CATALOGO_PLANES_HRM_2026-09-22.md -- HRM aún aplica su tabla local;
+        // estos límites viajan en `resolve` para cuando migre a ellos.
+        'hrm' => [
+            ['codigo' => 'basico', 'nombre' => 'Básico', 'orden' => 1, 'modulos' => null,
+                'limites' => ['max_empresas' => 1, 'max_empleados' => 250, 'max_usuarios' => null]],
+            ['codigo' => 'estandar', 'nombre' => 'Estándar', 'orden' => 2, 'modulos' => null,
+                'limites' => ['max_empresas' => 3, 'max_empleados' => 500, 'max_usuarios' => null]],
+            ['codigo' => 'profesional', 'nombre' => 'Profesional', 'orden' => 3, 'modulos' => null,
+                'limites' => ['max_empresas' => 5, 'max_empleados' => 750, 'max_usuarios' => null]],
+            ['codigo' => 'senior', 'nombre' => 'Senior', 'orden' => 4, 'modulos' => null,
+                'limites' => ['max_empresas' => 7, 'max_empleados' => 1000, 'max_usuarios' => null]],
+            ['codigo' => 'premium', 'nombre' => 'Premium', 'orden' => 5, 'modulos' => null,
+                'limites' => ['max_empresas' => null, 'max_empleados' => null, 'max_usuarios' => null]],
+        ],
+    ];
+
+    private const EXTRAS = [
+        'comercializa' => [
+            ['codigo' => 'empresa_adicional', 'nombre' => 'Empresa adicional', 'limite' => 'max_empresas', 'incremento' => 1],
+        ],
+        'hrm' => [
+            ['codigo' => 'empleados_adicionales', 'nombre' => 'Adición de empleados (AddEmp)', 'limite' => 'max_empleados', 'incremento' => 100],
+        ],
+    ];
+
     public function handle(): int
     {
         $tokensNuevos = [];
@@ -90,6 +131,23 @@ class SembrarCatalogoCommand extends Command
         }
 
         $this->line('Módulos de Comercializa sembrados: ' . implode(', ', array_keys(self::MODULOS_COMERCIALIZA)));
+
+        foreach (self::PLANES as $slug => $planes) {
+            $producto = Producto::where('slug', $slug)->first();
+            foreach ($planes as $plan) {
+                ProductoPlan::updateOrCreate(
+                    ['producto_id' => $producto->id, 'codigo' => $plan['codigo']],
+                    [...$plan, 'activo' => true]
+                );
+            }
+            foreach (self::EXTRAS[$slug] ?? [] as $extra) {
+                ProductoExtra::updateOrCreate(
+                    ['producto_id' => $producto->id, 'codigo' => $extra['codigo']],
+                    [...$extra, 'activo' => true]
+                );
+            }
+            $this->line("Planes de '{$slug}' sembrados: ".implode(', ', array_column($planes, 'codigo')));
+        }
 
         if ($tokensNuevos) {
             $this->warn('Tokens internos generados -- ÚNICA vez que se muestran en claro. Entrégalos por canal seguro a cada agente (NO en un .md de 0. Contexto):');

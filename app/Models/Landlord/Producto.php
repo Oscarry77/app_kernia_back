@@ -49,4 +49,25 @@ class Producto extends Model
     {
         return $this->modulos()->exists();
     }
+
+    public function planes(): HasMany
+    {
+        return $this->hasMany(ProductoPlan::class);
+    }
+
+    public function extras(): HasMany
+    {
+        return $this->hasMany(ProductoExtra::class);
+    }
+
+    /** Con catálogo de planes, el plan es obligatorio y dicta módulos y límites (estándar v2.1). */
+    public function usaPlanes(): bool
+    {
+        return $this->planes()->exists();
+    }
+
+    public function plan(?string $codigo): ?ProductoPlan
+    {
+        return $codigo === null ? null : $this->planes()->where('codigo', $codigo)->where('activo', true)->first();
+    }
 }

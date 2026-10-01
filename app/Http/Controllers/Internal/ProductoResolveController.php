@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
 use App\Models\Landlord\Suscripcion;
+use App\Services\Landlord\SuscripcionPlanService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -58,6 +59,13 @@ class ProductoResolveController extends Controller
         $modulos = $suscripcion->clavesModulosActivos();
         if ($modulos !== null) {
             $respuesta['modulos'] = $modulos;
+        }
+
+        // Estándar v2.1: límites efectivos (plan + extras). La app los aplica;
+        // ausente si el producto no tiene catálogo o la suscripción no tiene plan.
+        $limites = app(SuscripcionPlanService::class)->limitesEfectivos($suscripcion);
+        if ($limites !== null) {
+            $respuesta['limites'] = $limites;
         }
 
         if ($producto->esDedicada()) {
