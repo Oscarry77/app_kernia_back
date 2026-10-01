@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Internal\ProductoClientesController;
 use App\Http\Controllers\Internal\ProductoResolveController;
 use App\Http\Controllers\Internal\TenantResolveController;
 use Illuminate\Support\Facades\Route;
@@ -19,4 +20,6 @@ Route::middleware('internal.token')->group(function () {
 // Contrato v1 (guía §4.1) -- consumido por las apps de producto.
 Route::middleware('internal.token.producto')->prefix('v1')->group(function () {
     Route::get('productos/{producto}/resolve/{slug}', [ProductoResolveController::class, 'resolver']);
+    // Clientes activos del producto, para tareas programadas por cliente (01-oct-2026).
+    Route::get('productos/{producto}/clientes', ProductoClientesController::class);
 });
