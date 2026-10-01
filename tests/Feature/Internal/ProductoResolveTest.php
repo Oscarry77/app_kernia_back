@@ -179,4 +179,36 @@ class ProductoResolveTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    /**
+     * 30-sep-2026: SVI configuró KERNIA_API_URL sin `/api` y recibía un 404
+     * de ruta inexistente que interpretaba como "Cliente no encontrado".
+     * Las internas se publican con ambos prefijos.
+     */
+    public function test_resolve_responde_tambien_sin_prefijo_api(): void
+    {
+        $producto = $this->crearProducto('hrm', Producto::MODO_COMPARTIDA, 'token-hrm');
+        $cliente = Cliente::create(['slug' => 'acme', 'nombre' => 'Acme', 'estatus' => Cliente::ESTATUS_ACTIVO]);
+        Suscripcion::create(['cliente_id' => $cliente->id, 'producto_id' => $producto->id, 'estatus' => Suscripcion::ESTATUS_ACTIVO]);
+
+        foreach (['/api/internal', '/internal'] as $prefijo) {
+            $this->withHeaders(['X-Internal-Token' => 'token-hrm'])
+                ->get("{$prefijo}/v1/productos/hrm/resolve/acme")
+                ->assertOk()
+                ->assertJsonPath('cliente.slug', 'acme');
+        }
+    }
+
+    /** Lineamientos §4.3: JSON aunque el caller no mande `Accept`, incluso en 404 de ruta. */
+    public function test_rutas_internas_responden_json_sin_header_accept(): void
+    {
+        $this->crearProducto('hrm', Producto::MODO_COMPARTIDA, 'token-hrm');
+
+        foreach (['/internal/v1/productos/hrm/resolve/no-existe', '/internal/v1/ruta-inexistente', '/api/internal/v1/ruta-inexistente'] as $url) {
+            $respuesta = $this->withHeaders(['X-Internal-Token' => 'token-hrm'])->get($url);
+
+            $respuesta->assertNotFound();
+            $this->assertStringContainsString('application/json', (string) $respuesta->headers->get('Content-Type'), $url);
+        }
+    }
 }
