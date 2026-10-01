@@ -23,8 +23,10 @@ class ReintentarAprovisionamientoCommand extends Command
             return self::FAILURE;
         }
 
+        $passwordTemporal = SuscripcionOnboardingService::generarPasswordTemporal();
+
         try {
-            $suscripcion = $onboarding->reintentar($suscripcion, (string) $this->argument('admin_nombre'));
+            $suscripcion = $onboarding->reintentar($suscripcion, (string) $this->argument('admin_nombre'), $passwordTemporal);
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
 
@@ -32,6 +34,12 @@ class ReintentarAprovisionamientoCommand extends Command
         }
 
         $this->info("Listo. Suscripción id={$suscripcion->id}, estatus={$suscripcion->estatus}, ref_externa=".($suscripcion->ref_externa ?? 'null'));
+
+        if ($suscripcion->estatus !== Suscripcion::ESTATUS_FALLIDO) {
+            // Si el intento anterior ya había creado el tenant, la app conserva
+            // la contraseña original e ignora esta (contrato §3.5).
+            MostrarPasswordTemporal::mostrar($this, $suscripcion->admin_email, $passwordTemporal, $suscripcion->estatus, esReintento: true);
+        }
 
         return self::SUCCESS;
     }

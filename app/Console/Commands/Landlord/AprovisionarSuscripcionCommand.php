@@ -3,6 +3,7 @@ namespace App\Console\Commands\Landlord;
 
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
+use App\Models\Landlord\Suscripcion;
 use App\Services\Landlord\SuscripcionOnboardingService;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -39,11 +40,17 @@ class AprovisionarSuscripcionCommand extends Command
 
         $this->info("Aprovisionando '{$clienteSlug}' en '{$productoSlug}' (modo {$producto->modo_datos})...");
 
+        $passwordTemporal = SuscripcionOnboardingService::generarPasswordTemporal();
+
         try {
             $suscripcion = $onboarding->aprovisionar(
                 $cliente,
                 $producto,
-                ['nombre' => $this->argument('admin_nombre'), 'email' => $this->argument('admin_email')],
+                [
+                    'nombre' => $this->argument('admin_nombre'),
+                    'email' => $this->argument('admin_email'),
+                    'password_temporal' => $passwordTemporal,
+                ],
                 $this->option('plan'),
             );
         } catch (RuntimeException $e) {
@@ -53,6 +60,10 @@ class AprovisionarSuscripcionCommand extends Command
         }
 
         $this->info("Listo. Suscripción id={$suscripcion->id}, estatus={$suscripcion->estatus}, ref_externa=".($suscripcion->ref_externa ?? 'null'));
+
+        if ($suscripcion->estatus !== Suscripcion::ESTATUS_FALLIDO) {
+            MostrarPasswordTemporal::mostrar($this, $suscripcion->admin_email, $passwordTemporal, $suscripcion->estatus);
+        }
 
         return self::SUCCESS;
     }

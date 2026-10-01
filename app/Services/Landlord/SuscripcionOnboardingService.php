@@ -30,7 +30,11 @@ class SuscripcionOnboardingService
     }
 
     /**
-     * @param array{nombre:string, email:string} $adminInicial
+     * `password_temporal` es opcional: si el caller la manda (el comando de
+     * alta, para mostrarla UNA vez al operador -- 30-sep-2026) se usa esa;
+     * si no, se genera aquí. Kernia nunca la guarda.
+     *
+     * @param array{nombre:string, email:string, password_temporal?:string} $adminInicial
      */
     public function aprovisionar(Cliente $cliente, Producto $producto, array $adminInicial, ?string $plan = null): Suscripcion
     {
@@ -54,7 +58,7 @@ class SuscripcionOnboardingService
             ...$datosConexion,
         ]);
 
-        return $this->llamarProvision($suscripcion, $adminInicial['nombre']);
+        return $this->llamarProvision($suscripcion, $adminInicial['nombre'], $adminInicial['password_temporal'] ?? null);
     }
 
     /**
@@ -65,7 +69,7 @@ class SuscripcionOnboardingService
      * _2026-09-28.md §3.5). La base dedicada, si aplica, ya se creó en el
      * primer intento y no se vuelve a crear.
      */
-    public function reintentar(Suscripcion $suscripcion, string $adminNombre): Suscripcion
+    public function reintentar(Suscripcion $suscripcion, string $adminNombre, ?string $passwordTemporal = null): Suscripcion
     {
         if ($suscripcion->estatus !== Suscripcion::ESTATUS_FALLIDO) {
             throw new RuntimeException(
@@ -75,7 +79,7 @@ class SuscripcionOnboardingService
 
         $suscripcion->update(['estatus' => Suscripcion::ESTATUS_EN_APROVISIONAMIENTO]);
 
-        return $this->llamarProvision($suscripcion, $adminNombre);
+        return $this->llamarProvision($suscripcion, $adminNombre, $passwordTemporal);
     }
 
     /**
@@ -94,13 +98,13 @@ class SuscripcionOnboardingService
         return $suscripcion->fresh();
     }
 
-    private function llamarProvision(Suscripcion $suscripcion, string $adminNombre): Suscripcion
+    private function llamarProvision(Suscripcion $suscripcion, string $adminNombre, ?string $passwordTemporal): Suscripcion
     {
         try {
             $cuerpo = $this->appClient->provisionar($suscripcion, [
                 'nombre' => $adminNombre,
                 'email' => $suscripcion->admin_email,
-                'password_temporal' => self::generarPasswordTemporal(),
+                'password_temporal' => $passwordTemporal ?? self::generarPasswordTemporal(),
             ]);
         } catch (Throwable $e) {
             $suscripcion->update(['estatus' => Suscripcion::ESTATUS_FALLIDO]);
