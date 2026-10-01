@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Polling de aprovisionamientos asíncronos (HRM con base por cliente, 28-sep-2026).
 Schedule::command('landlord:sincronizar-aprovisionamientos')->everyMinute()->withoutOverlapping();
+
+// Reintento de avisos de estatus no confirmados por la app (01-oct-2026).
+Schedule::command('landlord:reintentar-notificaciones-estatus')->everyMinute()->withoutOverlapping();

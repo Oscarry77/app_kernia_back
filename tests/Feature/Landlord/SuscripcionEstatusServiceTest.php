@@ -46,4 +46,53 @@ class SuscripcionEstatusServiceTest extends TestCase
         $this->assertFalse($ok);
         $this->assertSame('suspendido', $suscripcion->fresh()->estatus, 'El estatus local debe cambiar aunque el push a la app falle.');
     }
+
+    /**
+     * 01-oct-2026: un push fallido se perdía. HRM no consulta `resolve`, así
+     * que un cliente suspendido seguía operando. Ahora queda pendiente y se
+     * reintenta hasta que la app confirme.
+     */
+    public function test_push_fallido_queda_pendiente_y_el_reintento_lo_entrega(): void
+    {
+        Http::fake(['*/api/internal/v1/clientes/*/estatus' => Http::sequence()
+            ->push(['message' => 'caída'], 503)
+            ->push('', 204)]);
+        $suscripcion = $this->crearSuscripcion();
+        $servicio = app(SuscripcionEstatusService::class);
+
+        $servicio->cambiarEstatus($suscripcion, 'suspendido', 'vencimiento');
+        $pendiente = $suscripcion->fresh();
+        $this->assertSame('suspendido', $pendiente->estatus_por_notificar);
+        $this->assertSame(1, $pendiente->estatus_notificacion_intentos);
+
+        $this->travel(2)->minutes();
+        $this->assertSame(['confirmadas' => 1, 'fallidas' => 0], $servicio->reintentarPendientes());
+
+        $confirmada = $suscripcion->fresh();
+        $this->assertNull($confirmada->estatus_por_notificar);
+        $this->assertSame(0, $confirmada->estatus_notificacion_intentos);
+        Http::assertSent(fn ($r) => $r->method() === 'PATCH' && $r['estatus'] === 'suspendido' && $r['motivo'] === 'vencimiento');
+    }
+
+    public function test_reintento_respeta_la_espera_y_manda_el_ultimo_estatus(): void
+    {
+        Http::fake(['*/api/internal/v1/clientes/*/estatus' => Http::sequence()
+            ->push(['message' => 'caída'], 503)
+            ->push(['message' => 'caída'], 503)
+            ->push('', 204)]);
+        $suscripcion = $this->crearSuscripcion();
+        $servicio = app(SuscripcionEstatusService::class);
+
+        $servicio->cambiarEstatus($suscripcion, 'suspendido');
+        $servicio->cambiarEstatus($suscripcion->fresh(), 'activo');
+
+        // Recién falló: todavía no toca reintentar.
+        $this->assertSame(['confirmadas' => 0, 'fallidas' => 0], $servicio->reintentarPendientes());
+
+        $this->travel(2)->minutes();
+        $this->assertSame(['confirmadas' => 1, 'fallidas' => 0], $servicio->reintentarPendientes());
+
+        $ultimo = collect(Http::recorded())->last()[0];
+        $this->assertSame('activo', $ultimo['estatus'], 'Solo debe viajar el último estatus pedido.');
+    }
 }

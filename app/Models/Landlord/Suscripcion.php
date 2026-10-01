@@ -42,6 +42,11 @@ class Suscripcion extends Model
         'db_bi_username',
         'db_bi_password',
         'provisionada_en',
+        'estatus_por_notificar',
+        'estatus_notificacion_motivo',
+        'estatus_notificacion_intentos',
+        'estatus_notificacion_error',
+        'estatus_notificacion_ultimo_intento',
     ];
 
     protected $hidden = [
@@ -54,6 +59,7 @@ class Suscripcion extends Model
         'fecha_proximo_pago' => 'date',
         'activa_hasta' => 'date',
         'provisionada_en' => 'datetime',
+        'estatus_notificacion_ultimo_intento' => 'datetime',
         'suspension_automatica' => 'boolean',
         'db_password' => 'encrypted',
         'db_bi_password' => 'encrypted',

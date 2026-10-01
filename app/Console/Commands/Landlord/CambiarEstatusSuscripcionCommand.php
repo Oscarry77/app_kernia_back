@@ -55,7 +55,8 @@ class CambiarEstatusSuscripcionCommand extends Command
         if ($pushOk) {
             $this->info('La app confirmó la notificación (revocación inmediata).');
         } else {
-            $this->warn('La app NO confirmó la notificación -- el cambio local ya aplica; la app lo reflejará en su próximo resolve (ventana de caché de 60 s), no de inmediato.');
+            $this->warn('La app NO confirmó la notificación. El cambio local ya aplica y el aviso quedó pendiente:');
+            $this->warn('landlord:reintentar-notificaciones-estatus lo reintenta cada minuto (con espera creciente) hasta que la app lo confirme.');
         }
 
         return self::SUCCESS;

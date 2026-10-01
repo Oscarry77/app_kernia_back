@@ -94,6 +94,29 @@ class ProductoAppClient
         }
     }
 
+    /**
+     * Estándar v2 §6.2 (01-oct-2026): la app fija una nueva contraseña
+     * temporal al administrador del workspace, obliga a cambiarla y revoca
+     * sus sesiones. 204 sin cuerpo; 404 si el correo no es el administrador.
+     */
+    public function restablecerAdmin(Suscripcion $suscripcion, string $email, string $passwordTemporal): void
+    {
+        $producto = $suscripcion->producto;
+
+        $respuesta = $this->cliente($producto)
+            ->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/admin/restablecer"), [
+                'email' => $email,
+                'password_temporal' => $passwordTemporal,
+            ]);
+
+        if ($respuesta->failed() || $respuesta->status() >= 300) {
+            throw new RuntimeException(
+                "Restablecimiento falló en '{$producto->slug}' ({$respuesta->status()}): ".substr($respuesta->body(), 0, 300)
+            );
+        }
+    }
+
     /** Nunca lanza -- degrada a {ok:false} (guía §4.2). */
     public function metricas(Suscripcion $suscripcion): array
     {
