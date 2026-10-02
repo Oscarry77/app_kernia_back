@@ -111,7 +111,7 @@ class SuscripcionOnboardingServiceTest extends TestCase
             $this->assertMatchesRegularExpression('/[A-Z]/', $password);
             $this->assertMatchesRegularExpression('/[a-z]/', $password);
             $this->assertMatchesRegularExpression('/[0-9]/', $password);
-            $this->assertMatchesRegularExpression('/[!@#%*\-_=+]/', $password);
+            $this->assertMatchesRegularExpression('/[!*\-_=+.@]/', $password);
         }
     }
 

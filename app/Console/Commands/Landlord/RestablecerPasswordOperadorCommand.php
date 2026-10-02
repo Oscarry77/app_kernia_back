@@ -2,7 +2,7 @@
 namespace App\Console\Commands\Landlord;
 
 use App\Models\Landlord\LandlordAdmin;
-use App\Services\Landlord\SuscripcionOnboardingService;
+use App\Services\Seguridad\GeneradorPassword;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +28,7 @@ class RestablecerPasswordOperadorCommand extends Command
             return self::FAILURE;
         }
 
-        $password = SuscripcionOnboardingService::generarPasswordTemporal();
+        $password = GeneradorPassword::generar(18);
         $admin->forceFill(['password' => Hash::make($password)])->save();
 
         Log::info('landlord.restablecer_password_operador', ['operador_id' => $admin->id]);

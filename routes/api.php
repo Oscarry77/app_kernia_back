@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Landlord\LandlordAuthController;
 use App\Http\Controllers\Landlord\LandlordTenantController;
+use App\Http\Controllers\Landlord\SolicitarPasswordController;
 use App\Http\Controllers\Landlord\LandlordEmpresaController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Route;
 // bootstrap/app.php bajo /api/internal y /internal (30-sep-2026).
 
 Route::post('auth/login', [LandlordAuthController::class, 'login']);
+// "Olvidé mi contraseña" del panel (02-oct-2026).
+Route::post('auth/password/solicitar', SolicitarPasswordController::class)->middleware('throttle:solicitud-password');
 
 Route::middleware('auth:api')->group(function () {
     Route::post('auth/logout', [LandlordAuthController::class, 'logout']);

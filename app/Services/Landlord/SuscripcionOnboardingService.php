@@ -4,6 +4,7 @@ namespace App\Services\Landlord;
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
 use App\Models\Landlord\Suscripcion;
+use App\Services\Seguridad\GeneradorPassword;
 use App\Services\TenantProvisioningService;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -215,22 +216,8 @@ class SuscripcionOnboardingService
      */
     public static function generarPasswordTemporal(): string
     {
-        $mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-        $minusculas = 'abcdefghijkmnpqrstuvwxyz';
-        $numeros = '23456789';
-        // Símbolos seguros en JSON/shell/URL -- sin comillas, backslash ni &.
-        $simbolos = '!@#%*-_=+';
-
-        $obligatorios = [
-            $mayusculas[random_int(0, strlen($mayusculas) - 1)],
-            $minusculas[random_int(0, strlen($minusculas) - 1)],
-            $numeros[random_int(0, strlen($numeros) - 1)],
-            $simbolos[random_int(0, strlen($simbolos) - 1)],
-        ];
-
-        $caracteres = array_merge($obligatorios, str_split(Str::random(12)));
-        shuffle($caracteres);
-
-        return implode('', $caracteres);
+        // 02-oct-2026: un solo generador para todo Kernia (sin `#`, `%`, `$`,
+        // comillas ni backslash; mezcla criptográfica).
+        return GeneradorPassword::generar(16);
     }
 }
