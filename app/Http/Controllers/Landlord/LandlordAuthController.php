@@ -102,6 +102,11 @@ class LandlordAuthController extends Controller
             'id'            => $admin->id,
             'nombre'        => $admin->nombre,
             'email'         => $admin->email,
+            'rol'           => $admin->rol,
+            'rol_nombre'    => config("kernia_acl.roles.{$admin->rol}.nombre", $admin->rol),
+            'puesto'        => $admin->puesto,
+            'permisos'      => $admin->permisos(),
+            'cartera'       => $admin->tieneCartera(),
             'ultimo_acceso' => $admin->ultimo_acceso?->toIso8601String(),
         ];
     }

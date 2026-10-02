@@ -25,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'internal.token' => \App\Http\Middleware\VerificarTokenInterno::class,
             'internal.token.producto' => \App\Http\Middleware\VerificarTokenProducto::class,
+            'permiso' => \App\Http\Middleware\VerificarPermiso::class,
+            'cartera' => \App\Http\Middleware\VerificarCartera::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

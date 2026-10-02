@@ -24,7 +24,7 @@ class ClientesController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-        $clientes = Cliente::query()
+        $clientes = Cliente::visiblesPara($request->user('api'))
             ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w
                 ->where('nombre', 'like', "%{$q}%")
                 ->orWhere('slug', 'like', "%{$q}%")
@@ -46,6 +46,12 @@ class ClientesController extends Controller
         $cliente = new Cliente([...$request->datosCliente(), 'slug' => $request->validated('slug'), 'estatus' => Cliente::ESTATUS_ACTIVO]);
         $cliente->nombre = $cliente->nombreParaMostrar();
         $cliente->save();
+
+        // Fase 3: el cliente que da de alta un vendedor queda en su cartera.
+        $operador = $request->user('api');
+        if ($operador->tieneCartera()) {
+            $cliente->operadores()->attach($operador->id, ['asignado_por' => $operador->id]);
+        }
 
         Auditoria::registrar('cliente.creado', $cliente, null, null, $cliente->only(['slug', 'nombre', 'tipo_persona', 'rfc']));
 

@@ -49,6 +49,20 @@ class Cliente extends Model
         return $this->hasMany(Suscripcion::class);
     }
 
+    /** Operadores con este cliente en su cartera (fase 3). */
+    public function operadores(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(LandlordAdmin::class, 'cliente_usuario', 'cliente_id', 'usuario_id')->withTimestamps();
+    }
+
+    /** Clientes que puede ver un operador: todos, o solo su cartera si es vendedor. */
+    public function scopeVisiblesPara(\Illuminate\Database\Eloquent\Builder $query, LandlordAdmin $operador): \Illuminate\Database\Eloquent\Builder
+    {
+        return $operador->tieneCartera()
+            ? $query->whereHas('operadores', fn ($q) => $q->whereKey($operador->id))
+            : $query;
+    }
+
     public function estaActivo(): bool
     {
         return $this->estatus === self::ESTATUS_ACTIVO;

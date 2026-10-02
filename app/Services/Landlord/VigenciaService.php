@@ -153,6 +153,8 @@ class VigenciaService
             ]);
 
             $s->update(['fecha_proximo_pago' => $hasta->toDateString(), 'activa_hasta' => null]);
+            // Fase 3: el pago cierra la prórroga vigente y cancela solicitudes pendientes.
+            app(ProrrogaService::class)->cerrarPorPago($s);
 
             return $pago;
         });
@@ -178,6 +180,8 @@ class VigenciaService
     {
         $hoy = self::hoy()->toDateString();
         $suspendidas = [];
+        // Fase 3: las prórrogas cuyo último día ya pasó quedan vencidas.
+        app(ProrrogaService::class)->marcarVencidas();
 
         $candidatas = Suscripcion::with(['cliente', 'producto'])
             ->where('estatus', Suscripcion::ESTATUS_ACTIVO)

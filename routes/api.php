@@ -6,6 +6,10 @@ use App\Http\Controllers\Landlord\SolicitarPasswordController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\SuscripcionesController;
+use App\Http\Controllers\Panel\AuditoriaController;
+use App\Http\Controllers\Panel\EscalafonController;
+use App\Http\Controllers\Panel\OperadoresController;
+use App\Http\Controllers\Panel\ProrrogasController;
 use App\Http\Controllers\Panel\VigenciasController;
 use App\Http\Controllers\Landlord\LandlordEmpresaController;
 use Illuminate\Support\Facades\Route;
@@ -21,45 +25,88 @@ Route::post('auth/login', [LandlordAuthController::class, 'login']);
 // "Olvidé mi contraseña" del panel (02-oct-2026).
 Route::post('auth/password/solicitar', SolicitarPasswordController::class)->middleware('throttle:solicitud-password');
 
-Route::middleware('auth:api')->group(function () {
+// `cartera`: un vendedor solo alcanza clientes de su cartera; fuera de ella,
+// 404 (como si no existiera).
+Route::middleware(['auth:api', 'cartera'])->group(function () {
     Route::post('auth/logout', [LandlordAuthController::class, 'logout']);
     Route::post('auth/refresh', [LandlordAuthController::class, 'refresh']);
     Route::get('auth/me', [LandlordAuthController::class, 'me']);
 
-    // Panel v2 (02-oct-2026): clientes y sus apps (modelo clientes/suscripciones).
-    Route::get('catalogo/productos', [CatalogoController::class, 'productos']);
-    Route::get('catalogo/fiscal', [CatalogoController::class, 'fiscal']);
-    Route::put('catalogo/productos/{producto:slug}', [CatalogoController::class, 'actualizarProducto']);
-    Route::post('catalogo/productos/{producto:slug}/planes', [CatalogoController::class, 'crearPlan']);
-    Route::put('catalogo/productos/{producto:slug}/planes/{codigo}', [CatalogoController::class, 'actualizarPlan']);
-    Route::post('catalogo/productos/{producto:slug}/extras', [CatalogoController::class, 'crearExtra']);
-    Route::put('catalogo/productos/{producto:slug}/extras/{codigo}', [CatalogoController::class, 'actualizarExtra']);
-    Route::patch('suscripciones/{suscripcion}/ws-cntpaq', [SuscripcionesController::class, 'wsCntpaq']);
-    // Vigencias (fase 2, 02-oct-2026).
-    Route::get('vigencias', [VigenciasController::class, 'index']);
-    Route::put('suscripciones/{suscripcion}/vigencia', [VigenciasController::class, 'actualizar']);
-    Route::get('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'pagos']);
-    Route::post('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'registrarPago']);
-    Route::get('clientes', [ClientesController::class, 'index']);
-    Route::post('clientes', [ClientesController::class, 'store']);
-    Route::get('clientes/{cliente}', [ClientesController::class, 'show']);
-    Route::put('clientes/{cliente}', [ClientesController::class, 'update']);
-    Route::post('clientes/{cliente}/suscripciones', [SuscripcionesController::class, 'store']);
-    Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan']);
-    Route::post('suscripciones/{suscripcion}/extras', [SuscripcionesController::class, 'agregarExtra']);
-    Route::patch('suscripciones/{suscripcion}/estatus', [SuscripcionesController::class, 'cambiarEstatus']);
-    Route::post('suscripciones/{suscripcion}/restablecer-admin', [SuscripcionesController::class, 'restablecerAdmin']);
-    Route::post('suscripciones/{suscripcion}/reintentar', [SuscripcionesController::class, 'reintentar']);
-    Route::get('suscripciones/{suscripcion}/metricas', [SuscripcionesController::class, 'metricas']);
+    // Panel v2 (02-oct-2026). Fase 3: cada ruta exige un permiso del rol
+    // (config/kernia_acl.php) y los controladores aplican la cartera.
 
-    // Modelo heredado "tenants" -- SOLO CONSULTA (02-oct-2026). Se retiraron
-    // alta, edición y cambio de estatus: escribían en `tenants`, que ninguna
-    // app consulta ya (la fuente de verdad es clientes/suscripciones), así que
-    // "Suspender" no suspendía nada y "Nuevo tenant" creaba clientes fuera del
-    // control v2. Los controladores se conservan hasta retirar el modelo.
-    Route::get('tenants', [LandlordTenantController::class, 'index']);
-    Route::get('tenants/{tenant}', [LandlordTenantController::class, 'show']);
-    Route::get('tenants/{tenant}/metricas', [LandlordTenantController::class, 'metricas']);
-    Route::get('tenants/{tenant}/empresas', [LandlordEmpresaController::class, 'index']);
-    Route::put('tenants/{tenant}/empresas/{empresa}/ws-cntpaq', [LandlordEmpresaController::class, 'actualizarWsCntpaq']);
+    // Consulta (todos los roles tienen clientes.ver)
+    Route::middleware('permiso:clientes.ver')->group(function () {
+        Route::get('catalogo/productos', [CatalogoController::class, 'productos']);
+        Route::get('catalogo/fiscal', [CatalogoController::class, 'fiscal']);
+        Route::get('clientes', [ClientesController::class, 'index']);
+        Route::get('clientes/{cliente}', [ClientesController::class, 'show']);
+        Route::get('vigencias', [VigenciasController::class, 'index']);
+        Route::get('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'pagos']);
+        Route::get('suscripciones/{suscripcion}/metricas', [SuscripcionesController::class, 'metricas']);
+        Route::get('suscripciones/{suscripcion}/prorrogas', [ProrrogasController::class, 'index']);
+        Route::get('prorrogas/motivos', [ProrrogasController::class, 'motivos']);
+    });
+
+    Route::post('clientes', [ClientesController::class, 'store'])->middleware('permiso:clientes.crear');
+    Route::put('clientes/{cliente}', [ClientesController::class, 'update'])->middleware('permiso:clientes.editar');
+
+    Route::middleware('permiso:suscripciones.gestionar')->group(function () {
+        Route::post('clientes/{cliente}/suscripciones', [SuscripcionesController::class, 'store']);
+        Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan']);
+        Route::post('suscripciones/{suscripcion}/extras', [SuscripcionesController::class, 'agregarExtra']);
+        Route::patch('suscripciones/{suscripcion}/ws-cntpaq', [SuscripcionesController::class, 'wsCntpaq']);
+        Route::post('suscripciones/{suscripcion}/reintentar', [SuscripcionesController::class, 'reintentar']);
+    });
+    Route::patch('suscripciones/{suscripcion}/estatus', [SuscripcionesController::class, 'cambiarEstatus'])->middleware('permiso:suscripciones.estatus');
+    Route::post('suscripciones/{suscripcion}/restablecer-admin', [SuscripcionesController::class, 'restablecerAdmin'])->middleware('permiso:suscripciones.restablecer_admin');
+
+    // Vigencias (fase 2)
+    Route::put('suscripciones/{suscripcion}/vigencia', [VigenciasController::class, 'actualizar'])->middleware('permiso:vigencias.gestionar');
+    Route::post('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'registrarPago'])->middleware('permiso:pagos.registrar');
+
+    // Prórrogas (fase 3): solicitar desde la sesión; autorizar/rechazar exige
+    // además las credenciales y el nivel de quien autoriza.
+    Route::middleware('permiso:prorrogas.solicitar')->group(function () {
+        Route::post('suscripciones/{suscripcion}/prorrogas', [ProrrogasController::class, 'solicitar']);
+        Route::post('prorrogas/{prorroga}/resolver', [ProrrogasController::class, 'resolver']);
+        Route::get('prorrogas/pendientes', [ProrrogasController::class, 'pendientes']);
+    });
+
+    // Catálogo
+    Route::middleware('permiso:catalogo.gestionar')->group(function () {
+        Route::put('catalogo/productos/{producto:slug}', [CatalogoController::class, 'actualizarProducto']);
+        Route::post('catalogo/productos/{producto:slug}/planes', [CatalogoController::class, 'crearPlan']);
+        Route::put('catalogo/productos/{producto:slug}/planes/{codigo}', [CatalogoController::class, 'actualizarPlan']);
+        Route::post('catalogo/productos/{producto:slug}/extras', [CatalogoController::class, 'crearExtra']);
+        Route::put('catalogo/productos/{producto:slug}/extras/{codigo}', [CatalogoController::class, 'actualizarExtra']);
+    });
+
+    // Operadores, cartera y escalafón
+    Route::middleware('permiso:operadores.gestionar')->group(function () {
+        Route::get('operadores', [OperadoresController::class, 'index']);
+        Route::post('operadores', [OperadoresController::class, 'store']);
+        Route::put('operadores/{operador}', [OperadoresController::class, 'update']);
+        Route::get('operadores/{operador}/cartera', [OperadoresController::class, 'cartera']);
+        Route::put('operadores/{operador}/cartera', [OperadoresController::class, 'cartera']);
+    });
+    Route::middleware('permiso:escalafon.gestionar')->group(function () {
+        Route::get('escalafon', [EscalafonController::class, 'index']);
+        Route::post('escalafon', [EscalafonController::class, 'store']);
+        Route::put('escalafon/{nivel}', [EscalafonController::class, 'update']);
+    });
+
+    // Bitácora
+    Route::get('auditoria', [AuditoriaController::class, 'index'])->middleware('permiso:auditoria.ver');
+
+    // Modelo heredado "tenants" -- SOLO CONSULTA (02-oct-2026), solo para
+    // quien ve la bitácora. Se retiraron alta, edición y estatus: escribían en
+    // `tenants`, que ninguna app consulta ya.
+    Route::middleware('permiso:auditoria.ver')->group(function () {
+        Route::get('tenants', [LandlordTenantController::class, 'index']);
+        Route::get('tenants/{tenant}', [LandlordTenantController::class, 'show']);
+        Route::get('tenants/{tenant}/metricas', [LandlordTenantController::class, 'metricas']);
+        Route::get('tenants/{tenant}/empresas', [LandlordEmpresaController::class, 'index']);
+        Route::put('tenants/{tenant}/empresas/{empresa}/ws-cntpaq', [LandlordEmpresaController::class, 'actualizarWsCntpaq']);
+    });
 });

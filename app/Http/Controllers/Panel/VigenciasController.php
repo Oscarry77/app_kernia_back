@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Panel;
 
 use App\Http\Controllers\Controller;
 use App\Models\Landlord\Auditoria;
+use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Suscripcion;
 use App\Services\Landlord\PanelPresenter;
 use App\Services\Landlord\VigenciaService;
@@ -31,6 +32,7 @@ class VigenciasController extends Controller
 
         $filas = Suscripcion::with(['cliente', 'producto'])
             ->whereNotIn('estatus', [Suscripcion::ESTATUS_CANCELADO, Suscripcion::ESTATUS_FALLIDO])
+            ->whereIn('cliente_id', Cliente::visiblesPara($request->user('api'))->select('id'))
             ->get()
             ->map(fn (Suscripcion $s) => [
                 'id' => $s->id,

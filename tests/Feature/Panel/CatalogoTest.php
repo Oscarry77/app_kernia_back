@@ -43,7 +43,7 @@ class CatalogoTest extends TestCase
     private function auth(): array
     {
         return $this->sesion ??= ['Authorization' => 'Bearer '.auth('api')->login(
-            LandlordAdmin::create(['nombre' => 'Op', 'email' => 'op@kernia.test', 'password' => 'Op-123456789!', 'activo' => true])
+            LandlordAdmin::create(['nombre' => 'Op', 'email' => 'op@kernia.test', 'rol' => 'superadmin', 'password' => 'Op-123456789!', 'activo' => true])
         )];
     }
 
