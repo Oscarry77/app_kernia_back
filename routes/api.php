@@ -27,6 +27,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Panel v2 (02-oct-2026): clientes y sus apps (modelo clientes/suscripciones).
     Route::get('catalogo/productos', [CatalogoController::class, 'productos']);
+    Route::get('catalogo/fiscal', [CatalogoController::class, 'fiscal']);
     Route::get('clientes', [ClientesController::class, 'index']);
     Route::post('clientes', [ClientesController::class, 'store']);
     Route::get('clientes/{cliente}', [ClientesController::class, 'show']);

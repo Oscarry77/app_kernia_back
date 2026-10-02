@@ -36,16 +36,29 @@ class PanelPresenter
     {
         $suscripciones = $c->suscripciones()->with('producto')->orderBy('id')->get();
 
-        return [
+        $datos = [
             'id' => $c->id,
             'slug' => $c->slug,
             'nombre' => $c->nombre,
+            'tipo_persona' => $c->tipo_persona,
             'rfc' => $c->rfc,
+            'nombre_comercial' => $c->nombre_comercial,
             'estatus' => $c->estatus,
-            'notas' => $c->notas,
+            'datos_fiscales_completos' => $c->datosFiscalesCompletos(),
             'creado' => $c->created_at?->toDateString(),
             'suscripciones' => $suscripciones->map(fn ($s) => $detalle ? $this->suscripcion($s) : $this->resumen($s))->all(),
         ];
+
+        if ($detalle) {
+            $datos['notas'] = $c->notas;
+            $datos['fiscal'] = [
+                ...$c->only(Cliente::CAMPOS_FISCALES),
+                'fecha_inicio_operaciones' => $c->fecha_inicio_operaciones?->toDateString(),
+                'regimen_fiscal_nombre' => collect(config('catalogos_fiscales.regimenes_fiscales'))->firstWhere('clave', $c->regimen_fiscal)['nombre'] ?? null,
+            ];
+        }
+
+        return $datos;
     }
 
     public function resumen(Suscripcion $s): array

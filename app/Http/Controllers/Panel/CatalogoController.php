@@ -15,4 +15,10 @@ class CatalogoController extends Controller
             'data' => Producto::orderBy('id')->get()->map(fn ($p) => $presenter->producto($p))->all(),
         ]);
     }
+
+    /** GET /api/catalogo/fiscal — listas del SAT para los datos del cliente (02-oct-2026). */
+    public function fiscal(): JsonResponse
+    {
+        return response()->json(['data' => config('catalogos_fiscales')]);
+    }
 }

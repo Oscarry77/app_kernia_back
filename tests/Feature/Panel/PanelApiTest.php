@@ -73,9 +73,9 @@ class PanelApiTest extends TestCase
         ]);
 
         // Alta de cliente (slug inválido rechazado)
-        $this->withHeaders($this->auth())->postJson('/api/clientes', ['slug' => 'Acme SA', 'nombre' => 'Acme'])->assertStatus(422);
-        $id = $this->withHeaders($this->auth())->postJson('/api/clientes', ['slug' => 'acme', 'nombre' => 'Acme SA', 'rfc' => 'xaxx010101000'])
-            ->assertCreated()->assertJsonPath('data.rfc', 'XAXX010101000')->json('data.id');
+        $this->withHeaders($this->auth())->postJson('/api/clientes', [...self::moral(), 'slug' => 'Acme SA'])->assertStatus(422);
+        $id = $this->withHeaders($this->auth())->postJson('/api/clientes', self::moral())
+            ->assertCreated()->assertJsonPath('data.rfc', 'ACM010101AB1')->json('data.id');
 
         // Alta de la suscripción con plan: devuelve la temporal una vez
         $r = $this->withHeaders($this->auth())->postJson("/api/clientes/{$id}/suscripciones", [
@@ -123,6 +123,91 @@ class PanelApiTest extends TestCase
 
         $this->assertStringNotContainsString('secreto-db-123', $r->getContent());
         $this->assertStringNotContainsString('tn_comdedi_app', $r->getContent());
+    }
+
+    private static function moral(array $extra = []): array
+    {
+        return [
+            'slug' => 'acme', 'tipo_persona' => 'moral', 'rfc' => 'acm010101ab1',
+            'razon_social' => 'Empresa única en México', 'regimen_capital' => 'SA DE CV', 'nombre_comercial' => 'Tiendas Única',
+            'regimen_fiscal' => '601', 'estatus_padron' => 'activo', 'fecha_inicio_operaciones' => '2010-01-15',
+            'codigo_postal' => '64000', 'tipo_vialidad' => 'AVENIDA', 'nombre_vialidad' => 'Constitución', 'numero_exterior' => '100',
+            'colonia' => 'Centro', 'municipio' => 'Monterrey', 'entidad_federativa' => 'NUEVO LEÓN',
+            'correo' => 'Contacto@Acme.test', 'telefono_lada' => '81', 'telefono_numero' => '12345678',
+            ...$extra,
+        ];
+    }
+
+    private static function fisica(array $extra = []): array
+    {
+        return [
+            'slug' => 'juan-perez', 'tipo_persona' => 'fisica', 'rfc' => 'PEGJ800101AB1', 'curp' => 'PEGJ800101HNLRNN09',
+            'nombres' => 'Juan', 'primer_apellido' => 'Pérez', 'segundo_apellido' => 'González',
+            'regimen_fiscal' => '626', 'codigo_postal' => '64000', 'entidad_federativa' => 'NUEVO LEÓN', 'correo' => 'juan@correo.test',
+            ...$extra,
+        ];
+    }
+
+    /** 02-oct-2026: datos según la Constancia de Situación Fiscal, con tipo de persona. */
+    public function test_persona_moral_arma_su_nombre_y_normaliza_datos(): void
+    {
+        $r = $this->withHeaders($this->auth())->postJson('/api/clientes', self::moral())->assertCreated();
+
+        $r->assertJsonPath('data.nombre', 'EMPRESA ÚNICA EN MÉXICO, SA DE CV')
+            ->assertJsonPath('data.fiscal.razon_social', 'EMPRESA ÚNICA EN MÉXICO')
+            ->assertJsonPath('data.fiscal.correo', 'contacto@acme.test')
+            ->assertJsonPath('data.fiscal.regimen_fiscal_nombre', 'General de Ley Personas Morales')
+            ->assertJsonPath('data.datos_fiscales_completos', true);
+    }
+
+    public function test_persona_fisica_requiere_curp_y_nombre_y_arma_su_nombre(): void
+    {
+        $this->withHeaders($this->auth())->postJson('/api/clientes', self::fisica(['curp' => null]))
+            ->assertStatus(422)->assertJsonValidationErrors('curp');
+
+        $this->withHeaders($this->auth())->postJson('/api/clientes', self::fisica())
+            ->assertCreated()->assertJsonPath('data.nombre', 'JUAN PÉREZ GONZÁLEZ')->assertJsonPath('data.fiscal.razon_social', null);
+    }
+
+    public function test_reglas_segun_tipo_de_persona(): void
+    {
+        $h = $this->withHeaders($this->auth());
+
+        // RFC de 13 en una moral, de 12 en una física
+        $h->postJson('/api/clientes', self::moral(['rfc' => 'PEGJ800101AB1']))->assertJsonValidationErrors('rfc');
+        $h->postJson('/api/clientes', self::fisica(['rfc' => 'ACM010101AB1']))->assertJsonValidationErrors('rfc');
+        // Régimen que no aplica al tipo
+        $h->postJson('/api/clientes', self::moral(['regimen_fiscal' => '612']))->assertJsonValidationErrors('regimen_fiscal');
+        $h->postJson('/api/clientes', self::fisica(['regimen_fiscal' => '601']))->assertJsonValidationErrors('regimen_fiscal');
+        // Campos de persona física en una moral
+        $h->postJson('/api/clientes', self::moral(['curp' => 'PEGJ800101HNLRNN09']))->assertJsonValidationErrors('curp');
+        // Teléfono: lada + número = 10 dígitos; CP de 5
+        $h->postJson('/api/clientes', self::moral(['telefono_lada' => '81', 'telefono_numero' => '1234567']))->assertJsonValidationErrors('telefono_numero');
+        $h->postJson('/api/clientes', self::moral(['codigo_postal' => '640']))->assertJsonValidationErrors('codigo_postal');
+    }
+
+    public function test_editar_no_cambia_el_slug_y_cambiar_de_tipo_limpia_los_datos_del_otro(): void
+    {
+        $id = $this->withHeaders($this->auth())->postJson('/api/clientes', self::moral())->json('data.id');
+
+        $this->withHeaders($this->auth())->putJson("/api/clientes/{$id}", self::moral(['slug' => 'otro']))->assertJsonValidationErrors('slug');
+
+        $datos = self::fisica();
+        unset($datos['slug']);
+        $this->withHeaders($this->auth())->putJson("/api/clientes/{$id}", $datos)->assertOk()
+            ->assertJsonPath('data.slug', 'acme')
+            ->assertJsonPath('data.fiscal.tipo_persona', 'fisica')
+            ->assertJsonPath('data.fiscal.razon_social', null)
+            ->assertJsonPath('data.fiscal.regimen_capital', null);
+
+        $this->assertSame('cliente.editado', Auditoria::latest('id')->value('accion'));
+    }
+
+    public function test_catalogo_fiscal(): void
+    {
+        $this->withHeaders($this->auth())->getJson('/api/catalogo/fiscal')->assertOk()
+            ->assertJsonCount(32, 'data.entidades_federativas')
+            ->assertJsonPath('data.regimenes_fiscales.0.clave', '601');
     }
 
     public function test_tenants_heredado_es_solo_consulta(): void
