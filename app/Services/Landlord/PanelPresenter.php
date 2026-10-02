@@ -71,6 +71,24 @@ class PanelPresenter
         return $datos;
     }
 
+    /** Vigencia de una suscripción (fase 2). */
+    public function vigencia(Suscripcion $s): array
+    {
+        $vigencias = app(VigenciaService::class);
+
+        return [
+            'modalidad_pago' => $s->modalidad_pago,
+            'fecha_contratacion' => $s->fecha_contratacion?->toDateString(),
+            'fecha_proximo_pago' => $s->fecha_proximo_pago?->toDateString(),
+            'dias_restantes' => $vigencias->diasRestantes($s),
+            'dias_gracia' => (int) $s->dias_gracia,
+            'suspension_automatica' => (bool) $s->suspension_automatica,
+            'suspension_motivo' => $s->suspension_motivo,
+            'activa_hasta' => $s->activa_hasta?->toDateString(),
+            'aviso' => $vigencias->aviso($s),
+        ];
+    }
+
     public function resumen(Suscripcion $s): array
     {
         $plan = $s->producto->planVigente($s->plan);
@@ -83,6 +101,8 @@ class PanelPresenter
             'plan' => $s->plan,
             'plan_nombre' => $plan?->nombre,
             'aviso_pendiente' => $s->estatus_por_notificar,
+            'fecha_proximo_pago' => $s->fecha_proximo_pago?->toDateString(),
+            'dias_restantes' => app(VigenciaService::class)->diasRestantes($s),
         ];
     }
 
@@ -100,8 +120,7 @@ class PanelPresenter
             'modulos' => $s->clavesModulosActivos(),
             'limites' => $this->planes->limitesEfectivos($s),
             'extras' => $this->planes->extrasContratados($s),
-            'fecha_contratacion' => $s->fecha_contratacion?->toDateString(),
-            'fecha_proximo_pago' => $s->fecha_proximo_pago?->toDateString(),
+            ...$this->vigencia($s),
             'provisionada_en' => $s->provisionada_en?->toDateTimeString(),
             'aviso_intentos' => $s->estatus_notificacion_intentos,
             'aviso_error' => $s->estatus_notificacion_error,

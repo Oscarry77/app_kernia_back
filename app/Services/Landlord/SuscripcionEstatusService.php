@@ -23,11 +23,19 @@ class SuscripcionEstatusService
     {
     }
 
-    /** @return bool true si la app confirmó en este intento (el cambio local siempre se aplica) */
-    public function cambiarEstatus(Suscripcion $suscripcion, string $estatus, ?string $motivo = null): bool
+    public const CAUSA_VENCIMIENTO = 'vencimiento';
+    public const CAUSA_MANUAL = 'manual';
+
+    /**
+     * @param string|null $causa al suspender: 'vencimiento' o 'manual' (default).
+     *                           Un pago solo levanta una suspensión por vencimiento (fase 2).
+     * @return bool true si la app confirmó en este intento (el cambio local siempre se aplica)
+     */
+    public function cambiarEstatus(Suscripcion $suscripcion, string $estatus, ?string $motivo = null, ?string $causa = null): bool
     {
         $suscripcion->update([
             'estatus' => $estatus,
+            'suspension_motivo' => $estatus === Suscripcion::ESTATUS_SUSPENDIDO ? ($causa ?? self::CAUSA_MANUAL) : null,
             'estatus_por_notificar' => $estatus,
             'estatus_notificacion_motivo' => $motivo,
             'estatus_notificacion_intentos' => 0,

@@ -24,6 +24,7 @@ class Suscripcion extends Model
         'cliente_id',
         'producto_id',
         'estatus',
+        'suspension_motivo',
         'plan',
         'ws_cntpaq_habilitado',
         'ref_externa',
@@ -80,6 +81,11 @@ class Suscripcion extends Model
     public function modulos(): HasMany
     {
         return $this->hasMany(SuscripcionModulo::class);
+    }
+
+    public function pagos(): HasMany
+    {
+        return $this->hasMany(Pago::class);
     }
 
     /** Bitácora de extras contratados (+n / -n). */

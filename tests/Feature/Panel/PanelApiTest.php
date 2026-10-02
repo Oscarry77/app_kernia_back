@@ -210,6 +210,31 @@ class PanelApiTest extends TestCase
             ->assertJsonPath('data.regimenes_fiscales.0.clave', '601');
     }
 
+    /** Fase 2: definir vigencia, registrar pago y la vista general de vigencias. */
+    public function test_vigencia_pago_y_vista_general(): void
+    {
+        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-10-05 10:00', 'America/Mexico_City'));
+        $c = Cliente::create(['slug' => 'vig', 'nombre' => 'VIG', 'estatus' => 'activo']);
+        $s = Suscripcion::create(['cliente_id' => $c->id, 'producto_id' => Producto::first()->id, 'estatus' => 'activo']);
+        $h = $this->withHeaders($this->auth());
+
+        $h->getJson('/api/vigencias?filtro=sin_definir')->assertOk()->assertJsonPath('data.0.id', $s->id);
+        $h->postJson("/api/suscripciones/{$s->id}/pagos", ['referencia' => 'X'])->assertStatus(422);
+
+        $h->putJson("/api/suscripciones/{$s->id}/vigencia", [
+            'modalidad_pago' => 'trimestral', 'fecha_proximo_pago' => '2026-10-20', 'suspension_automatica' => true,
+        ])->assertOk()->assertJsonPath('data.dias_restantes', 15)->assertJsonPath('data.aviso.nivel', 'info');
+
+        $h->getJson('/api/vigencias?filtro=por_vencer&dias=30')->assertJsonPath('data.0.dias_restantes', 15);
+
+        $h->postJson("/api/suscripciones/{$s->id}/pagos", ['referencia' => 'TRF-99', 'monto' => 4500])
+            ->assertCreated()->assertJsonPath('data.fecha_proximo_pago', '2027-01-20')->assertJsonPath('reactivada', false);
+
+        $h->getJson("/api/suscripciones/{$s->id}/pagos")->assertJsonPath('data.0.periodo_desde', '2026-10-20')
+            ->assertJsonPath('data.0.registrado_por', 'Op');
+        $this->assertSame(['suscripcion.vigencia', 'suscripcion.pago'], Auditoria::orderBy('id')->pluck('accion')->all());
+    }
+
     public function test_tenants_heredado_es_solo_consulta(): void
     {
         $this->withHeaders($this->auth())->getJson('/api/tenants')->assertOk();

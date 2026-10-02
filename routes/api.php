@@ -6,6 +6,7 @@ use App\Http\Controllers\Landlord\SolicitarPasswordController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\SuscripcionesController;
+use App\Http\Controllers\Panel\VigenciasController;
 use App\Http\Controllers\Landlord\LandlordEmpresaController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,11 @@ Route::middleware('auth:api')->group(function () {
     Route::post('catalogo/productos/{producto:slug}/extras', [CatalogoController::class, 'crearExtra']);
     Route::put('catalogo/productos/{producto:slug}/extras/{codigo}', [CatalogoController::class, 'actualizarExtra']);
     Route::patch('suscripciones/{suscripcion}/ws-cntpaq', [SuscripcionesController::class, 'wsCntpaq']);
+    // Vigencias (fase 2, 02-oct-2026).
+    Route::get('vigencias', [VigenciasController::class, 'index']);
+    Route::put('suscripciones/{suscripcion}/vigencia', [VigenciasController::class, 'actualizar']);
+    Route::get('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'pagos']);
+    Route::post('suscripciones/{suscripcion}/pagos', [VigenciasController::class, 'registrarPago']);
     Route::get('clientes', [ClientesController::class, 'index']);
     Route::post('clientes', [ClientesController::class, 'store']);
     Route::get('clientes/{cliente}', [ClientesController::class, 'show']);

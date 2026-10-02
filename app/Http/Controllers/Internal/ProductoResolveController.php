@@ -7,6 +7,7 @@ use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
 use App\Models\Landlord\Suscripcion;
 use App\Services\Landlord\SuscripcionPlanService;
+use App\Services\Landlord\VigenciaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,7 +54,8 @@ class ProductoResolveController extends Controller
                 'ref_externa' => $suscripcion->ref_externa,
                 'fecha_proximo_pago' => $suscripcion->fecha_proximo_pago?->toDateString(),
             ],
-            'aviso' => null,
+            // Fase 2 (02-oct-2026): banner de vencimiento calculado por Kernia.
+            'aviso' => app(VigenciaService::class)->aviso($suscripcion),
         ];
 
         $modulos = $suscripcion->clavesModulosActivos();
