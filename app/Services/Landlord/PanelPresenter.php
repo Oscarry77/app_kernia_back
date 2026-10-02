@@ -15,19 +15,29 @@ class PanelPresenter
     {
     }
 
-    public function producto(Producto $p): array
+    /** @param bool $completo incluye planes/extras inactivos y cuántos clientes usan cada plan (pantalla de catálogo) */
+    public function producto(Producto $p, bool $completo = false): array
     {
+        $catalogo = app(CatalogoService::class);
+
         return [
             'id' => $p->id,
             'slug' => $p->slug,
             'nombre' => $p->nombre,
+            'nombre_corto' => $p->nombre_corto,
+            'descripcion' => $p->descripcion,
+            'permite_ws_cntpaq' => (bool) $p->permite_ws_cntpaq,
             'modo_datos' => $p->modo_datos,
-            'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre'])->toArray(),
-            'planes' => $p->planes()->where('activo', true)->orderBy('orden')->get()
-                ->map(fn ($pl) => ['codigo' => $pl->codigo, 'nombre' => $pl->nombre, 'modulos' => $pl->modulos, 'limites' => $pl->limites])
+            'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre', 'requiere'])->toArray(),
+            'planes' => $p->planes()->when(! $completo, fn ($q) => $q->where('activo', true))->orderBy('orden')->get()
+                ->map(fn ($pl) => [
+                    'codigo' => $pl->codigo, 'nombre' => $pl->nombre, 'modulos' => $pl->modulos, 'limites' => $pl->limites,
+                    'orden' => $pl->orden, 'activo' => (bool) $pl->activo,
+                    ...($completo ? ['clientes' => $catalogo->suscripcionesConPlan($p, $pl->codigo)] : []),
+                ])
                 ->all(),
-            'extras' => $p->extras()->where('activo', true)->get()
-                ->map(fn ($e) => ['codigo' => $e->codigo, 'nombre' => $e->nombre, 'limite' => $e->limite, 'incremento' => $e->incremento])
+            'extras' => $p->extras()->when(! $completo, fn ($q) => $q->where('activo', true))->get()
+                ->map(fn ($e) => ['codigo' => $e->codigo, 'nombre' => $e->nombre, 'limite' => $e->limite, 'incremento' => $e->incremento, 'activo' => (bool) $e->activo])
                 ->all(),
         ];
     }
@@ -63,7 +73,7 @@ class PanelPresenter
 
     public function resumen(Suscripcion $s): array
     {
-        $plan = $s->producto->plan($s->plan);
+        $plan = $s->producto->planVigente($s->plan);
 
         return [
             'id' => $s->id,
@@ -82,6 +92,9 @@ class PanelPresenter
             ...$this->resumen($s),
             'estatus_almacenado' => $s->estatus,
             'modo_datos' => $s->producto->modo_datos,
+            'db_driver' => $s->db_driver,
+            'permite_ws_cntpaq' => (bool) $s->producto->permite_ws_cntpaq,
+            'ws_cntpaq_habilitado' => (bool) $s->ws_cntpaq_habilitado,
             'ref_externa' => $s->ref_externa,
             'admin_email' => $s->admin_email,
             'modulos' => $s->clavesModulosActivos(),

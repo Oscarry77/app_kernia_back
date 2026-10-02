@@ -90,14 +90,16 @@ class SuscripcionPlanService
      */
     public function limitesEfectivos(Suscripcion $suscripcion): ?array
     {
-        $plan = $suscripcion->producto->plan($suscripcion->plan);
+        $plan = $suscripcion->producto->planVigente($suscripcion->plan);
         if (! $plan) {
             return null;
         }
 
         $limites = $plan->limites ?? [];
 
-        foreach ($suscripcion->producto->extras()->where('activo', true)->get() as $extra) {
+        // Todos los extras, activos o no: desactivar un extra impide venderlo
+        // de nuevo, pero lo ya contratado sigue sumando (02-oct-2026).
+        foreach ($suscripcion->producto->extras()->get() as $extra) {
             $total = $this->totalExtra($suscripcion, $extra->id);
             if ($total === 0 || ! array_key_exists($extra->limite, $limites) || $limites[$extra->limite] === null) {
                 continue;

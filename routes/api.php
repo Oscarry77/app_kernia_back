@@ -28,6 +28,12 @@ Route::middleware('auth:api')->group(function () {
     // Panel v2 (02-oct-2026): clientes y sus apps (modelo clientes/suscripciones).
     Route::get('catalogo/productos', [CatalogoController::class, 'productos']);
     Route::get('catalogo/fiscal', [CatalogoController::class, 'fiscal']);
+    Route::put('catalogo/productos/{producto:slug}', [CatalogoController::class, 'actualizarProducto']);
+    Route::post('catalogo/productos/{producto:slug}/planes', [CatalogoController::class, 'crearPlan']);
+    Route::put('catalogo/productos/{producto:slug}/planes/{codigo}', [CatalogoController::class, 'actualizarPlan']);
+    Route::post('catalogo/productos/{producto:slug}/extras', [CatalogoController::class, 'crearExtra']);
+    Route::put('catalogo/productos/{producto:slug}/extras/{codigo}', [CatalogoController::class, 'actualizarExtra']);
+    Route::patch('suscripciones/{suscripcion}/ws-cntpaq', [SuscripcionesController::class, 'wsCntpaq']);
     Route::get('clientes', [ClientesController::class, 'index']);
     Route::post('clientes', [ClientesController::class, 'store']);
     Route::get('clientes/{cliente}', [ClientesController::class, 'show']);

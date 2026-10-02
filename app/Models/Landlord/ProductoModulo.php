@@ -14,7 +14,10 @@ class ProductoModulo extends Model
         'producto_id',
         'clave',
         'nombre',
+        'requiere',
     ];
+
+    protected $casts = ['requiere' => 'array'];
 
     public function producto(): BelongsTo
     {

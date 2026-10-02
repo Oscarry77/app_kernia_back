@@ -25,6 +25,7 @@ class Suscripcion extends Model
         'producto_id',
         'estatus',
         'plan',
+        'ws_cntpaq_habilitado',
         'ref_externa',
         'admin_email',
         'modalidad_pago',
@@ -61,6 +62,7 @@ class Suscripcion extends Model
         'provisionada_en' => 'datetime',
         'estatus_notificacion_ultimo_intento' => 'datetime',
         'suspension_automatica' => 'boolean',
+        'ws_cntpaq_habilitado' => 'boolean',
         'db_password' => 'encrypted',
         'db_bi_password' => 'encrypted',
     ];

@@ -20,6 +20,9 @@ class Producto extends Model
         'modo_datos',
         'token_interno',
         'prefijo_db',
+        'nombre_corto',
+        'descripcion',
+        'permite_ws_cntpaq',
     ];
 
     protected $hidden = [
@@ -28,6 +31,7 @@ class Producto extends Model
 
     protected $casts = [
         'token_interno' => 'encrypted',
+        'permite_ws_cntpaq' => 'boolean',
     ];
 
     public function modulos(): HasMany
@@ -66,8 +70,20 @@ class Producto extends Model
         return $this->planes()->exists();
     }
 
+    /** Plan ASIGNABLE: solo activos (altas y cambios de plan). */
     public function plan(?string $codigo): ?ProductoPlan
     {
         return $codigo === null ? null : $this->planes()->where('codigo', $codigo)->where('activo', true)->first();
+    }
+
+    /**
+     * Plan VIGENTE de una suscripción, activo o no (02-oct-2026): desactivar un
+     * plan impide asignarlo a nuevos clientes, pero sigue rigiendo módulos y
+     * límites de quien ya lo tiene. Sin esto, desactivarlo dejaba a esos
+     * clientes sin límites.
+     */
+    public function planVigente(?string $codigo): ?ProductoPlan
+    {
+        return $codigo === null ? null : $this->planes()->where('codigo', $codigo)->first();
     }
 }

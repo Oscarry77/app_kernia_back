@@ -168,6 +168,22 @@ class SuscripcionesController extends Controller
         return response()->json(['data' => $this->presenter->suscripcion($s), 'password_temporal' => $password]);
     }
 
+    /** WS-CNTPAQi.Net habilitado para este cliente en esta app (solo Comercializa y HRM, decisión del dueño 02-oct). */
+    public function wsCntpaq(Request $request, Suscripcion $suscripcion): JsonResponse
+    {
+        $datos = $request->validate(['habilitado' => ['required', 'boolean']]);
+
+        if (! $suscripcion->producto->permite_ws_cntpaq) {
+            return response()->json(['message' => "{$suscripcion->producto->nombre} no usa WS-CNTPAQi.Net."], 422);
+        }
+
+        $antes = ['ws_cntpaq_habilitado' => (bool) $suscripcion->ws_cntpaq_habilitado];
+        $suscripcion->update(['ws_cntpaq_habilitado' => $datos['habilitado']]);
+        Auditoria::registrar('suscripcion.ws_cntpaq', null, $suscripcion, $antes, ['ws_cntpaq_habilitado' => $datos['habilitado']]);
+
+        return response()->json(['data' => $this->presenter->suscripcion($suscripcion->fresh())]);
+    }
+
     public function metricas(Suscripcion $suscripcion, ProductoAppClient $app): JsonResponse
     {
         return response()->json(['data' => $app->metricas($suscripcion)]);

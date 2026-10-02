@@ -20,7 +20,7 @@ class VerSuscripcionCommand extends Command
             return self::FAILURE;
         }
 
-        $plan = $s->producto->plan($s->plan);
+        $plan = $s->producto->planVigente($s->plan);
 
         $this->table(['Campo', 'Valor'], [
             ['Cliente', "{$s->cliente->slug} (id {$s->cliente->id})"],

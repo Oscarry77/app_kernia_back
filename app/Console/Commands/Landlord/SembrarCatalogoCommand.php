@@ -83,6 +83,20 @@ class SembrarCatalogoCommand extends Command
         ],
     ];
 
+    /** Viáticos no existe sin Tesorería (decisión del dueño). */
+    private const REQUIERE = [
+        'viaticos' => ['tesoreria'],
+    ];
+
+    private const DESCRIPTIVOS = [
+        'comercializa' => ['nombre_corto' => 'COM', 'permite_ws_cntpaq' => true,
+            'descripcion' => 'BackOffice: ventas, compras, inventarios, tesorería y viáticos, con contabilización de pólizas.'],
+        'hrm' => ['nombre_corto' => 'HRM', 'permite_ws_cntpaq' => true,
+            'descripcion' => 'Cálculo de nómina, IMSS/INFONAVIT y administración de personal.'],
+        'svi' => ['nombre_corto' => 'SVI', 'permite_ws_cntpaq' => false,
+            'descripcion' => 'Generación de informes para la autoridad tributaria.'],
+    ];
+
     private const EXTRAS = [
         'comercializa' => [
             ['codigo' => 'empresa_adicional', 'nombre' => 'Empresa adicional', 'limite' => 'max_empresas', 'incremento' => 1],
@@ -124,10 +138,23 @@ class SembrarCatalogoCommand extends Command
         $comercializa = Producto::where('slug', 'comercializa')->first();
 
         foreach (self::MODULOS_COMERCIALIZA as $clave => $nombre) {
-            ProductoModulo::updateOrCreate(
+            $modulo = ProductoModulo::firstOrCreate(
                 ['producto_id' => $comercializa->id, 'clave' => $clave],
                 ['nombre' => $nombre]
             );
+            // Dependencias (02-oct-2026): solo si aún no están declaradas.
+            if ($modulo->requiere === null && isset(self::REQUIERE[$clave])) {
+                $modulo->update(['requiere' => self::REQUIERE[$clave]]);
+            }
+        }
+
+        // Datos descriptivos (02-oct-2026): solo la primera vez (sin nombre
+        // corto todavía); después se editan desde el panel y no se pisan.
+        foreach (self::DESCRIPTIVOS as $slug => $datos) {
+            $producto = Producto::where('slug', $slug)->first();
+            if ($producto->nombre_corto === null) {
+                $producto->update($datos);
+            }
         }
 
         $this->line('Módulos de Comercializa sembrados: ' . implode(', ', array_keys(self::MODULOS_COMERCIALIZA)));
@@ -135,13 +162,15 @@ class SembrarCatalogoCommand extends Command
         foreach (self::PLANES as $slug => $planes) {
             $producto = Producto::where('slug', $slug)->first();
             foreach ($planes as $plan) {
-                ProductoPlan::updateOrCreate(
+                // firstOrCreate (02-oct-2026): los planes se editan desde el
+                // panel; volver a correr este comando no debe revertirlos.
+                ProductoPlan::firstOrCreate(
                     ['producto_id' => $producto->id, 'codigo' => $plan['codigo']],
                     [...$plan, 'activo' => true]
                 );
             }
             foreach (self::EXTRAS[$slug] ?? [] as $extra) {
-                ProductoExtra::updateOrCreate(
+                ProductoExtra::firstOrCreate(
                     ['producto_id' => $producto->id, 'codigo' => $extra['codigo']],
                     [...$extra, 'activo' => true]
                 );
