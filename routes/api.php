@@ -3,6 +3,9 @@
 use App\Http\Controllers\Landlord\LandlordAuthController;
 use App\Http\Controllers\Landlord\LandlordTenantController;
 use App\Http\Controllers\Landlord\SolicitarPasswordController;
+use App\Http\Controllers\Panel\CatalogoController;
+use App\Http\Controllers\Panel\ClientesController;
+use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Landlord\LandlordEmpresaController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,11 +25,27 @@ Route::middleware('auth:api')->group(function () {
     Route::post('auth/refresh', [LandlordAuthController::class, 'refresh']);
     Route::get('auth/me', [LandlordAuthController::class, 'me']);
 
+    // Panel v2 (02-oct-2026): clientes y sus apps (modelo clientes/suscripciones).
+    Route::get('catalogo/productos', [CatalogoController::class, 'productos']);
+    Route::get('clientes', [ClientesController::class, 'index']);
+    Route::post('clientes', [ClientesController::class, 'store']);
+    Route::get('clientes/{cliente}', [ClientesController::class, 'show']);
+    Route::put('clientes/{cliente}', [ClientesController::class, 'update']);
+    Route::post('clientes/{cliente}/suscripciones', [SuscripcionesController::class, 'store']);
+    Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan']);
+    Route::post('suscripciones/{suscripcion}/extras', [SuscripcionesController::class, 'agregarExtra']);
+    Route::patch('suscripciones/{suscripcion}/estatus', [SuscripcionesController::class, 'cambiarEstatus']);
+    Route::post('suscripciones/{suscripcion}/restablecer-admin', [SuscripcionesController::class, 'restablecerAdmin']);
+    Route::post('suscripciones/{suscripcion}/reintentar', [SuscripcionesController::class, 'reintentar']);
+    Route::get('suscripciones/{suscripcion}/metricas', [SuscripcionesController::class, 'metricas']);
+
+    // Modelo heredado "tenants" -- SOLO CONSULTA (02-oct-2026). Se retiraron
+    // alta, edición y cambio de estatus: escribían en `tenants`, que ninguna
+    // app consulta ya (la fuente de verdad es clientes/suscripciones), así que
+    // "Suspender" no suspendía nada y "Nuevo tenant" creaba clientes fuera del
+    // control v2. Los controladores se conservan hasta retirar el modelo.
     Route::get('tenants', [LandlordTenantController::class, 'index']);
-    Route::post('tenants', [LandlordTenantController::class, 'store']);
     Route::get('tenants/{tenant}', [LandlordTenantController::class, 'show']);
-    Route::put('tenants/{tenant}', [LandlordTenantController::class, 'update']);
-    Route::patch('tenants/{tenant}/estatus', [LandlordTenantController::class, 'cambiarEstatus']);
     Route::get('tenants/{tenant}/metricas', [LandlordTenantController::class, 'metricas']);
     Route::get('tenants/{tenant}/empresas', [LandlordEmpresaController::class, 'index']);
     Route::put('tenants/{tenant}/empresas/{empresa}/ws-cntpaq', [LandlordEmpresaController::class, 'actualizarWsCntpaq']);
