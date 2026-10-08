@@ -6,10 +6,12 @@ use App\Models\Landlord\Auditoria;
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\Suscripcion;
+use App\Services\Correo\AvisosCliente;
 use App\Services\Landlord\CambioPlanService;
 use App\Services\Landlord\PanelPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -107,7 +109,19 @@ class CambiosPlanController extends Controller
             'nivel' => $sol->nivel_autorizacion, 'fecha_efectiva' => $sol->fecha_efectiva?->toDateString(),
         ]);
 
+        // 07-oct-2026: una baja programada se avisa por correo al cliente, a su asesor y a Dirección.
+        // Un problema con el correo nunca deshace la autorización: queda en el registro de correos.
+        $avisos = [];
+        if ($sol->estado === SolicitudPlan::PROGRAMADA && $sol->direccion === SolicitudPlan::BAJADA) {
+            try {
+                $avisos = app(AvisosCliente::class)->cambioPlanProgramado($sol);
+            } catch (RuntimeException $e) {
+                Log::warning('correo.aviso_cambio_plan_no_generado', ['solicitud_plan_id' => $sol->id, 'error' => $e->getMessage()]);
+            }
+        }
+
         return response()->json([
+            'correos' => collect($avisos)->countBy('estado'),
             'data' => $this->presenter->solicitudPlan($sol->fresh(['solicitante:id,nombre', 'resolutor:id,nombre'])),
             'suscripcion' => $this->presenter->suscripcion($sol->suscripcion->fresh()),
             'aplicada' => $r['aplicada'],

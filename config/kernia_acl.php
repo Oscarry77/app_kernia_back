@@ -13,14 +13,14 @@ return [
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
             'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar',
-            'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver',
+            'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver', 'correos.ver',
         ]],
         'gerente' => ['nombre' => 'Gerente', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
             'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar',
-            'operadores.gestionar',
+            'operadores.gestionar', 'correos.ver',
         ]],
         'vendedor' => ['nombre' => 'Vendedor', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',

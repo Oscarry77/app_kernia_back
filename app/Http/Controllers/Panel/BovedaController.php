@@ -6,14 +6,13 @@ use App\Mail\PruebaCorreoKerniaMail;
 use App\Models\Landlord\Auditoria;
 use App\Models\Landlord\BovedaAcceso;
 use App\Models\Landlord\BovedaSecreto;
+use App\Models\Landlord\CorreoEnviado;
 use App\Services\Boveda\BovedaService;
 use App\Services\Boveda\CorreoKernia;
+use App\Services\Correo\CentroCorreo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Throwable;
 
 /**
  * Bóveda de Kernia en el panel (07-oct-2026). Solo el superadmin
@@ -121,14 +120,12 @@ class BovedaController extends Controller
         $operador = $request->user('api');
         $secreto = BovedaSecreto::where('clave', CorreoKernia::CLAVE)->first();
 
-        try {
-            // Siempre con el mailer de la bóveda, aunque MAIL_MAILER aún apunte a otro.
-            Mail::mailer(CorreoKernia::MAILER)->to($datos['destinatario'])->send(new PruebaCorreoKerniaMail($operador->nombre));
-        } catch (Throwable $e) {
-            $this->boveda->registrar($secreto, 'prueba', $operador->id, 'Prueba fallida: '.$e::class);
-            Log::warning('boveda.correo_prueba_fallida', ['error' => $e::class]);
+        // Siempre con el mailer de la bóveda, aunque MAIL_MAILER aún apunte a otro; queda en el centro de correo.
+        $envio = app(CentroCorreo::class)->enviar(new PruebaCorreoKerniaMail($operador->nombre), $datos['destinatario'], [], CorreoKernia::MAILER);
+        if ($envio->estado !== CorreoEnviado::ENVIADO) {
+            $this->boveda->registrar($secreto, 'prueba', $operador->id, 'Prueba fallida: '.$envio->error);
 
-            return response()->json(['message' => 'El servidor de correo rechazó el envío: '.$this->explicar($e)], 422);
+            return response()->json(['message' => 'No se pudo enviar: '.$envio->error], 422);
         }
 
         $this->boveda->registrar($secreto, 'prueba', $operador->id, 'Correo de prueba enviado a '.$datos['destinatario']);
@@ -157,18 +154,5 @@ class BovedaController extends Controller
         Auditoria::registrar('boveda.confirmacion_fallida', null, null, null, ['ruta' => $request->path()]);
 
         return response()->json(['message' => 'Tu contraseña no es correcta.', 'errors' => ['password_operador' => ['Tu contraseña no es correcta.']]], 422);
-    }
-
-    /** Mensaje útil sin exponer credenciales ni la traza. */
-    private function explicar(Throwable $e): string
-    {
-        $m = $e->getMessage();
-
-        return match (true) {
-            str_contains($m, '535') || str_contains($m, 'authenticate') => 'usuario o contraseña del buzón incorrectos (en Gmail se usa una contraseña de aplicación).',
-            str_contains($m, 'Connection') || str_contains($m, 'connect') => 'no se pudo conectar con el servidor; revisa el servidor, el puerto y el cifrado.',
-            str_contains($m, 'TLS') || str_contains($m, 'SSL') => 'falló la conexión segura; revisa el puerto y el cifrado (587 con TLS o 465 con SSL).',
-            default => 'error desconocido; revisa los datos e intenta de nuevo.',
-        };
     }
 }

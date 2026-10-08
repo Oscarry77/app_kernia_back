@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Landlord;
 use App\Services\Boveda\CorreoKernia;
 use App\Http\Controllers\Controller;
 use App\Mail\NuevaPasswordOperadorMail;
+use App\Models\Landlord\CorreoEnviado;
 use App\Models\Landlord\LandlordAdmin;
+use App\Services\Correo\CentroCorreo;
 use App\Services\Seguridad\GeneradorPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Throwable;
 
 /**
  * POST /api/auth/password/solicitar (02-oct-2026) — "olvidé mi contraseña"
@@ -54,13 +54,11 @@ class SolicitarPasswordController extends Controller
 
         $password = GeneradorPassword::generar(18);
 
-        try {
-            Mail::to($admin->email)->send(new NuevaPasswordOperadorMail($admin->nombre, $password));
-        } catch (Throwable $e) {
-            Log::critical('landlord.password_solicitada_envio_fallido', [
-                'operador_id' => $admin->id,
-                'error' => $e::class,
-            ]);
+        // 07-oct-2026: por el centro de correo (queda en el registro, sin la contraseña).
+        $envio = app(CentroCorreo::class)->enviar(new NuevaPasswordOperadorMail($admin->nombre, $password), $admin->email,
+            ['operador_id' => null, 'referencia' => "operador:{$admin->id}"]);
+        if ($envio->estado !== CorreoEnviado::ENVIADO) {
+            Log::critical('landlord.password_solicitada_envio_fallido', ['operador_id' => $admin->id, 'estado' => $envio->estado]);
 
             return response()->json(['message' => self::MENSAJE], 202);
         }

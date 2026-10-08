@@ -1,28 +1,35 @@
 <?php
 namespace App\Mail;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
-
 /** Correo de prueba del buzón de Kernia, enviado desde la bóveda (07-oct-2026). */
-class PruebaCorreoKerniaMail extends Mailable
+class PruebaCorreoKerniaMail extends MensajeKernia
 {
-    use Queueable, SerializesModels;
-
     public function __construct(public readonly string $operador)
     {
     }
 
-    public function envelope(): Envelope
+    public static function plantilla(): string
     {
-        return new Envelope(subject: 'Kernia — prueba del buzón');
+        return 'prueba_buzon';
     }
 
-    public function content(): Content
+    public static function nombre(): string
     {
-        return new Content(text: 'emails.prueba-correo-kernia');
+        return 'Prueba del buzón';
+    }
+
+    public static function ejemplo(): static
+    {
+        return new static('Ana López');
+    }
+
+    protected function asunto(): string
+    {
+        return 'prueba del buzón';
+    }
+
+    protected function datos(): array
+    {
+        return get_object_vars($this);
     }
 }

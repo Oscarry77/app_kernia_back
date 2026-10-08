@@ -7,6 +7,7 @@ use App\Http\Controllers\Panel\BovedaController;
 use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
+use App\Http\Controllers\Panel\CorreosController;
 use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Panel\AuditoriaController;
 use App\Http\Controllers\Panel\EscalafonController;
@@ -117,6 +118,13 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('boveda/{secreto}/accesos', [BovedaController::class, 'accesos']);
         Route::put('boveda/correo', [BovedaController::class, 'guardarCorreo']);
         Route::post('boveda/correo/probar', [BovedaController::class, 'probarCorreo']);
+    });
+
+    // Centro de correo (07-oct-2026): registro de enviados y vista previa de plantillas.
+    Route::middleware('permiso:correos.ver')->group(function () {
+        Route::get('correos', [CorreosController::class, 'index']);
+        Route::get('correos/plantillas', [CorreosController::class, 'plantillas']);
+        Route::get('correos/plantillas/{clave}/vista-previa', [CorreosController::class, 'vistaPrevia']);
     });
 
     // Bitácora

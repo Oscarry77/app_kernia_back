@@ -1,19 +1,17 @@
 <?php
 namespace App\Http\Controllers\Panel;
 
-use App\Services\Boveda\CorreoKernia;
 use App\Http\Controllers\Controller;
 use App\Mail\NuevaPasswordOperadorMail;
 use App\Models\Landlord\Auditoria;
 use App\Models\Landlord\Cliente;
+use App\Models\Landlord\CorreoEnviado;
 use App\Models\Landlord\LandlordAdmin;
+use App\Services\Correo\CentroCorreo;
 use App\Services\Seguridad\GeneradorPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
-use Throwable;
 
 /**
  * Operadores de Kernia, su rol y su cartera (fase 3, 02-oct-2026).
@@ -51,15 +49,9 @@ class OperadoresController extends Controller
         $password = GeneradorPassword::generar(18);
         $nuevo = LandlordAdmin::create([...$datos, 'email' => strtolower($datos['email']), 'password' => $password, 'activo' => true]);
 
-        $enviada = false;
-        if (app(CorreoKernia::class)->disponible()) {
-            try {
-                Mail::to($nuevo->email)->send(new NuevaPasswordOperadorMail($nuevo->nombre, $password));
-                $enviada = true;
-            } catch (Throwable $e) {
-                Log::warning('landlord.operador_alta_correo_fallido', ['operador_id' => $nuevo->id, 'error' => $e::class]);
-            }
-        }
+        // 07-oct-2026: por el centro de correo. Si no se pudo enviar, la contraseña se muestra una vez.
+        $enviada = app(CentroCorreo::class)->enviar(new NuevaPasswordOperadorMail($nuevo->nombre, $password), $nuevo->email,
+            ['referencia' => "operador:{$nuevo->id}"])->estado === CorreoEnviado::ENVIADO;
 
         Auditoria::registrar('operador.alta', null, null, null, [...$nuevo->only(['id', 'nombre', 'email', 'rol', 'puesto']), 'password_por_correo' => $enviada]);
 
