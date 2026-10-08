@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Landlord;
 
+use App\Services\Boveda\CorreoKernia;
 use App\Http\Controllers\Controller;
 use App\Mail\NuevaPasswordOperadorMail;
 use App\Models\Landlord\LandlordAdmin;
@@ -34,7 +35,7 @@ class SolicitarPasswordController extends Controller
     {
         $datos = $request->validate(['email' => ['required', 'email', 'max:100']]);
 
-        if (in_array(config('mail.default'), ['log', 'array'], true)) {
+        if (! app(CorreoKernia::class)->disponible()) {
             Log::warning('landlord.password_solicitada_sin_correo', ['mailer' => config('mail.default')]);
 
             return response()->json([

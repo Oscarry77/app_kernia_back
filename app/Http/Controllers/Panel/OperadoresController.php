@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Panel;
 
+use App\Services\Boveda\CorreoKernia;
 use App\Http\Controllers\Controller;
 use App\Mail\NuevaPasswordOperadorMail;
 use App\Models\Landlord\Auditoria;
@@ -51,7 +52,7 @@ class OperadoresController extends Controller
         $nuevo = LandlordAdmin::create([...$datos, 'email' => strtolower($datos['email']), 'password' => $password, 'activo' => true]);
 
         $enviada = false;
-        if (! in_array(config('mail.default'), ['log', 'array'], true)) {
+        if (app(CorreoKernia::class)->disponible()) {
             try {
                 Mail::to($nuevo->email)->send(new NuevaPasswordOperadorMail($nuevo->nombre, $password));
                 $enviada = true;

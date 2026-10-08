@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\Boveda\CorreoKernia;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,5 +32,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(3)->by('correo:'.strtolower((string) $request->input('email'))),
             Limit::perHour(10)->by('ip:'.$request->ip()),
         ]);
+
+        // (07-oct-2026) Transporte del buzón de Kernia armado con las
+        // credenciales de la bóveda, solo al momento de enviar.
+        Mail::extend(CorreoKernia::MAILER, fn () => app(CorreoKernia::class)->transporte());
     }
 }

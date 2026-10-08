@@ -3,6 +3,7 @@
 use App\Http\Controllers\Landlord\LandlordAuthController;
 use App\Http\Controllers\Landlord\LandlordTenantController;
 use App\Http\Controllers\Landlord\SolicitarPasswordController;
+use App\Http\Controllers\Panel\BovedaController;
 use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
@@ -107,6 +108,15 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('escalafon', [EscalafonController::class, 'index']);
         Route::post('escalafon', [EscalafonController::class, 'store']);
         Route::put('escalafon/{nivel}', [EscalafonController::class, 'update']);
+    });
+
+    // Bóveda (07-oct-2026): solo el superadmin. Los secretos se escriben,
+    // nunca se leen; escribir exige su contraseña de nuevo.
+    Route::middleware('permiso:boveda.gestionar')->group(function () {
+        Route::get('boveda', [BovedaController::class, 'index']);
+        Route::get('boveda/{secreto}/accesos', [BovedaController::class, 'accesos']);
+        Route::put('boveda/correo', [BovedaController::class, 'guardarCorreo']);
+        Route::post('boveda/correo/probar', [BovedaController::class, 'probarCorreo']);
     });
 
     // Bitácora

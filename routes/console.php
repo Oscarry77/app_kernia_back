@@ -18,3 +18,6 @@ Schedule::command('landlord:reintentar-notificaciones-estatus')->everyMinute()->
 // hora para recuperar un corte perdido si el servidor estuvo abajo.
 Schedule::command('landlord:procesar-vencimientos')->dailyAt('00:00')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();
 Schedule::command('landlord:procesar-vencimientos')->hourlyAt(5)->withoutOverlapping();
+
+// Bóveda (07-oct-2026): purga diaria de secretos cuya retención venció.
+Schedule::command('landlord:boveda-purgar')->dailyAt('00:15')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();

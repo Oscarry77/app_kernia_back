@@ -37,6 +37,12 @@ return [
 
     'mailers' => [
 
+        // (07-oct-2026) Buzón de Kernia: las credenciales viven en la bóveda,
+        // no aquí (App\Services\Boveda\CorreoKernia). Se activa con MAIL_MAILER=kernia.
+        'kernia' => [
+            'transport' => 'kernia',
+        ],
+
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
