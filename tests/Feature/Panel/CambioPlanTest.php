@@ -144,7 +144,7 @@ class CambioPlanTest extends TestCase
         $s = $this->suscripcion('corporativo', '+10 days');
 
         $id = $this->withHeaders($this->como($this->vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-            ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo' => 'Reduce operación'])
+            ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo_salida' => 'precio', 'motivo' => 'Reduce operación'])
             ->assertCreated()->assertJsonPath('data.direccion', 'bajada')->json('data.id');
 
         $this->resolver($id, $this->vendedor, 'ger@kernia.test')->assertOk()
@@ -176,11 +176,11 @@ class CambioPlanTest extends TestCase
 
         // Sin fecha de próximo pago, la baja no puede esperar a la renovación
         $this->withHeaders($this->como($this->vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-            ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo' => 'x'])
+            ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo_salida' => 'precio', 'motivo' => 'x'])
             ->assertStatus(422)->assertJsonPath('message', 'Esta suscripción no tiene fecha de próximo pago: la baja solo puede aplicarse en el siguiente corte de las 00:00.');
 
         $id = $this->withHeaders($this->como($this->vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-            ['plan' => 'basico', 'aplicacion' => 'inmediata', 'motivo' => 'Ajuste'])->assertCreated()->json('data.id');
+            ['plan' => 'basico', 'aplicacion' => 'inmediata', 'motivo_salida' => 'precio', 'motivo' => 'Ajuste'])->assertCreated()->json('data.id');
 
         // "Inmediata" en una baja = el siguiente corte de las 00:00, nunca a media jornada (dueño, 05-oct)
         $this->resolver($id, $this->vendedor, 'ger@kernia.test')->assertOk()
@@ -203,7 +203,7 @@ class CambioPlanTest extends TestCase
         $s = $this->suscripcion('corporativo');
 
         $id = $this->withHeaders($this->como($this->vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-            ['plan' => 'basico', 'motivo' => 'x'])->json('data.id');
+            ['plan' => 'basico', 'motivo_salida' => 'precio', 'motivo' => 'x'])->json('data.id');
 
         // Pendientes, con el resumen de pagos para quien resuelve
         $this->withHeaders($this->como($this->gerente))->getJson('/api/cambios-plan/pendientes')
@@ -216,7 +216,7 @@ class CambioPlanTest extends TestCase
 
         // Una nueva solicitud se puede cancelar
         $nueva = $this->withHeaders($this->como($this->vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-            ['plan' => 'profesional', 'motivo' => 'x'])->json('data.id');
+            ['plan' => 'profesional', 'motivo_salida' => 'precio', 'motivo' => 'x'])->json('data.id');
         $this->withHeaders($this->como($this->vendedor))->postJson("/api/cambios-plan/{$nueva}/cancelar", ['motivo' => 'El cliente se arrepintió'])
             ->assertOk()->assertJsonPath('data.estado', 'cancelada');
     }

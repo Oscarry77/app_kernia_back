@@ -100,11 +100,11 @@ class SalidaTest extends TestCase
         SolicitudPlan::create(['suscripcion_id' => $s->id, 'plan_actual' => null, 'plan_nuevo' => 'x', 'direccion' => 'bajada',
             'aplicacion' => 'renovacion', 'motivo' => 'x', 'estado' => 'programada', 'fecha_efectiva' => $s->fecha_proximo_pago]);
 
-        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'El cliente ya no usará SVI'])
+        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'El cliente ya no usará SVI'])
             ->assertCreated()->assertJsonPath('data.estado', 'solicitada')->json('data.id');
 
         // Una sola solicitud abierta; el vendedor no se autoriza a sí mismo
-        $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'otra'])->assertStatus(422);
+        $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'otra'])->assertStatus(422);
         $this->resolver($id, 'vend@kernia.test')->assertStatus(422);
 
         $this->resolver($id, 'ger@kernia.test')->assertOk()
@@ -135,7 +135,7 @@ class SalidaTest extends TestCase
             ->assertStatus(422);
         $this->assertSame(1, Artisan::call('landlord:cambiar-estatus-suscripcion', ['cliente_slug' => 'acme', 'producto_slug' => 'svi', 'estatus' => 'activo']));
         // Desde retirado no se pide otro retiro
-        $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'x'])->assertStatus(422);
+        $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'x'])->assertStatus(422);
 
         $id = $this->solicitar($s, ['tipo' => 'reactivacion', 'motivo' => 'Regresa el cliente'])->assertCreated()->json('data.id');
         $this->resolver($id, 'ger@kernia.test')->assertOk()
@@ -147,7 +147,7 @@ class SalidaTest extends TestCase
         $s = $this->suscripcion('suspendido');
         Prorroga::create(['suscripcion_id' => $s->id, 'fecha_vencimiento' => now()->toDateString(), 'dias' => 2, 'motivo' => 'otro', 'estado' => 'solicitada']);
 
-        $base = ['tipo' => 'finiquito', 'motivo' => 'Cierre de la empresa'];
+        $base = ['tipo' => 'finiquito', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'Cierre de la empresa'];
         $this->solicitar($s, $base)->assertStatus(422);
         $this->solicitar($s, [...$base, 'conformidad_tipo' => 'correo', 'conformidad_referencia' => 'Correo del 07/10', 'confirmacion_slug' => 'otro'])
             ->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'acme'));
@@ -191,11 +191,11 @@ class SalidaTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.suscripciones.0.salidas_posibles.retiro.permitido', false)
             ->assertJsonPath('data.suscripciones.0.salidas_posibles.finiquito.permitido', false);
-        $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'x'])->assertStatus(422);
+        $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'x'])->assertStatus(422);
 
         // Si se apaga entre la autorización y el corte, la salida falla sin mandar nada a la app
         $this->svi->update(['estatus_salida' => true]);
-        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'x'])->assertCreated()->json('data.id');
+        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'x'])->assertCreated()->json('data.id');
         $this->resolver($id, 'ger@kernia.test')->assertOk();
         Artisan::call('landlord:estatus-salida', ['producto_slug' => 'svi', '--apagar' => true]);
         $this->corte();
@@ -208,10 +208,10 @@ class SalidaTest extends TestCase
     public function test_soporte_no_solicita_y_el_vendedor_no_ve_salidas_fuera_de_su_cartera(): void
     {
         $s = $this->suscripcion();
-        $this->withHeaders($this->como($this->soporte))->postJson("/api/suscripciones/{$s->id}/salidas", ['tipo' => 'retiro', 'motivo' => 'x'])
+        $this->withHeaders($this->como($this->soporte))->postJson("/api/suscripciones/{$s->id}/salidas", ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'x'])
             ->assertStatus(403);
 
-        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo' => 'x'])->json('data.id');
+        $id = $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'ya_no_necesita', 'motivo' => 'x'])->json('data.id');
         $this->withHeaders($this->como($this->gerente))->getJson('/api/salidas/pendientes')->assertOk()->assertJsonCount(1, 'data');
 
         $otro = $this->operador('otro', 'vendedor');

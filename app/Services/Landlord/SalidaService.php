@@ -8,6 +8,7 @@ use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\SolicitudSalida;
 use App\Models\Landlord\SolicitudSalidaIntento;
 use App\Models\Landlord\Suscripcion;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 
@@ -106,15 +107,28 @@ class SalidaService
             $conformidad = ['conformidad_tipo' => $tipoConformidad, 'conformidad_referencia' => mb_substr($referencia, 0, 500)];
         }
 
-        return SolicitudSalida::create([
-            'suscripcion_id' => $s->id,
-            'tipo' => $tipo,
-            'estatus_anterior' => $s->estatus,
-            'motivo' => $motivo,
-            ...$conformidad,
-            'estado' => SolicitudSalida::SOLICITADA,
-            'solicitada_por' => $solicitante->id,
-        ]);
+        // 08-oct-2026: formulario de salida obligatorio para el asesor (retiro y finiquito).
+        $formularios = app(FormularioSalidaService::class);
+        if ($tipo !== SolicitudSalida::REACTIVACION) {
+            $formularios->validarMotivoAsesor($datos['motivo_salida'] ?? null, $motivo);
+        }
+
+        return DB::transaction(function () use ($s, $tipo, $motivo, $conformidad, $solicitante, $datos, $formularios) {
+            $sol = SolicitudSalida::create([
+                'suscripcion_id' => $s->id,
+                'tipo' => $tipo,
+                'estatus_anterior' => $s->estatus,
+                'motivo' => $motivo,
+                ...$conformidad,
+                'estado' => SolicitudSalida::SOLICITADA,
+                'solicitada_por' => $solicitante->id,
+            ]);
+            if ($tipo !== SolicitudSalida::REACTIVACION) {
+                $formularios->registrarAsesor($s, $tipo, $datos['motivo_salida'], $motivo, $solicitante, ['solicitud_salida_id' => $sol->id]);
+            }
+
+            return $sol;
+        });
     }
 
     /**

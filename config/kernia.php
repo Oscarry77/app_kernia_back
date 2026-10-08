@@ -20,4 +20,27 @@ return [
     // Finiquito (08-oct-2026, decisión del dueño del 05-oct): días que el
     // administrador del cliente tiene para descargar su respaldo.
     'finiquito_descarga_dias' => 15,
+
+    // Formulario de salida (08-oct-2026, aprobado por el dueño). El asesor
+    // elige uno al solicitar un retiro, un finiquito o una baja de plan; el
+    // cliente, desde su enlace. "otro" exige detalle.
+    'motivos_salida' => [
+        'precio' => 'Precio',
+        'cambio_sistema' => 'Cambio a otro sistema',
+        'faltan_funciones' => 'Le faltan funciones',
+        'servicio' => 'Problemas de servicio',
+        'cierre_negocio' => 'Cierre o venta del negocio',
+        'ya_no_necesita' => 'Ya no lo necesita',
+        'falta_pago' => 'Falta de pago',
+        'otro' => 'Otro',
+    ],
+
+    // Motivos que el cliente NO ve en su formulario (los decide Kernia).
+    'motivos_salida_solo_asesor' => ['falta_pago'],
+
+    // Vigencia del enlace de un solo uso para el cliente.
+    'formulario_salida_dias' => 30,
+
+    // Dirección pública del panel; el enlace del cliente es {url_panel}/salida/{token}.
+    'url_panel' => env('KERNIA_URL_PANEL', 'http://localhost:4400'),
 ];

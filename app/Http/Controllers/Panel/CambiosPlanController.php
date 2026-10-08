@@ -71,11 +71,12 @@ class CambiosPlanController extends Controller
             'plan' => ['required', 'string', 'max:60'],
             'aplicacion' => ['nullable', 'in:inmediata,renovacion'],
             'motivo' => ['required', 'string', 'max:1000'],
+            'motivo_salida' => ['nullable', 'string', 'max:30'],
         ]);
 
         try {
             $sol = $this->cambios->solicitar($suscripcion, $datos['plan'], $datos['aplicacion'] ?? SolicitudPlan::RENOVACION,
-                $datos['motivo'], $request->user('api'));
+                $datos['motivo'], $request->user('api'), $datos['motivo_salida'] ?? null);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

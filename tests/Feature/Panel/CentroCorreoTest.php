@@ -138,7 +138,7 @@ class CentroCorreoTest extends TestCase
         };
         $bajar = function (Suscripcion $s) use ($vendedor, $gerente) {
             $id = $this->withHeaders($this->como($vendedor))->postJson("/api/suscripciones/{$s->id}/cambios-plan",
-                ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo' => 'Reduce operación'])->json('data.id');
+                ['plan' => 'basico', 'aplicacion' => 'renovacion', 'motivo_salida' => 'precio', 'motivo' => 'Reduce operación'])->json('data.id');
 
             return $this->withHeaders($this->como($vendedor))->postJson("/api/cambios-plan/{$id}/resolver",
                 ['accion' => 'autorizar', 'email' => $gerente->email, 'password' => self::PW]);

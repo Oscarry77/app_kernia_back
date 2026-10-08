@@ -8,6 +8,7 @@ use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\CorreosController;
+use App\Http\Controllers\Panel\FormularioSalidaController;
 use App\Http\Controllers\Panel\SalidasController;
 use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Panel\AuditoriaController;
@@ -28,6 +29,13 @@ use Illuminate\Support\Facades\Route;
 Route::post('auth/login', [LandlordAuthController::class, 'login']);
 // "Olvidé mi contraseña" del panel (02-oct-2026).
 Route::post('auth/password/solicitar', SolicitarPasswordController::class)->middleware('throttle:solicitud-password');
+
+// Formulario de salida que contesta el CLIENTE (08-oct-2026): público, con un
+// enlace de un solo uso. No revela nada más que el nombre del cliente y la app.
+Route::middleware('throttle:formulario-salida')->group(function () {
+    Route::get('publico/salida/{token}', [FormularioSalidaController::class, 'mostrar']);
+    Route::post('publico/salida/{token}', [FormularioSalidaController::class, 'responder']);
+});
 
 // `cartera`: un vendedor solo alcanza clientes de su cartera; fuera de ella,
 // 404 (como si no existiera).
@@ -53,6 +61,7 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('suscripciones/{suscripcion}/plan/vista-previa', [CambiosPlanController::class, 'vistaPrevia']);
         Route::get('suscripciones/{suscripcion}/cambios-plan', [CambiosPlanController::class, 'index']);
         Route::get('suscripciones/{suscripcion}/salidas', [SalidasController::class, 'index']);
+        Route::get('catalogo/motivos-salida', [FormularioSalidaController::class, 'motivos']);
     });
 
     Route::post('clientes', [ClientesController::class, 'store'])->middleware('permiso:clientes.crear');
@@ -98,7 +107,9 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::post('salidas/{salida}/resolver', [SalidasController::class, 'resolver']);
         Route::post('salidas/{salida}/cancelar', [SalidasController::class, 'cancelar']);
         Route::get('salidas/pendientes', [SalidasController::class, 'pendientes']);
+        Route::post('suscripciones/{suscripcion}/formulario-salida/enlace', [FormularioSalidaController::class, 'generarEnlace']);
     });
+    Route::get('motivos-salida', [FormularioSalidaController::class, 'index'])->middleware('permiso:salidas.motivos');
 
     // Catálogo
     Route::middleware('permiso:catalogo.gestionar')->group(function () {

@@ -57,6 +57,7 @@ class SalidasController extends Controller
         $datos = $request->validate([
             'tipo' => ['required', 'in:'.implode(',', SolicitudSalida::TIPOS)],
             'motivo' => ['required', 'string', 'max:1000'],
+            'motivo_salida' => ['nullable', 'string', 'max:30'],
             'conformidad_tipo' => ['nullable', 'in:correo,documento'],
             'conformidad_referencia' => ['nullable', 'string', 'max:500'],
             'confirmacion_slug' => ['nullable', 'string', 'max:60'],

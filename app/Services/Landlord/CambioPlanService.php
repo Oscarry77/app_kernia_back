@@ -2,12 +2,14 @@
 namespace App\Services\Landlord;
 
 use App\Models\Landlord\Auditoria;
+use App\Models\Landlord\FormularioSalida;
 use App\Models\Landlord\LandlordAdmin;
 use App\Models\Landlord\NivelAutorizacion;
 use App\Models\Landlord\Pago;
 use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\SolicitudPlanIntento;
 use App\Models\Landlord\Suscripcion;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 
@@ -81,7 +83,7 @@ class CambioPlanService
         ];
     }
 
-    public function solicitar(Suscripcion $s, string $codigo, string $aplicacion, string $motivo, LandlordAdmin $solicitante): SolicitudPlan
+    public function solicitar(Suscripcion $s, string $codigo, string $aplicacion, string $motivo, LandlordAdmin $solicitante, ?string $motivoSalida = null): SolicitudPlan
     {
         if ($s->estatus !== Suscripcion::ESTATUS_ACTIVO) {
             throw new RuntimeException('Solo se cambia el plan de una suscripción activa.');
@@ -105,16 +107,29 @@ class CambioPlanService
             throw new RuntimeException('Esta suscripción no tiene fecha de próximo pago: la baja solo puede aplicarse en el siguiente corte de las 00:00.');
         }
 
-        return SolicitudPlan::create([
-            'suscripcion_id' => $s->id,
-            'plan_actual' => $s->plan,
-            'plan_nuevo' => $vista['plan_nuevo'],
-            'direccion' => $direccion,
-            'aplicacion' => $aplicacion,
-            'motivo' => trim($motivo),
-            'estado' => SolicitudPlan::SOLICITADA,
-            'solicitada_por' => $solicitante->id,
-        ]);
+        // 08-oct-2026: una baja de plan también registra el motivo de salida (formulario del asesor).
+        $formularios = app(FormularioSalidaService::class);
+        if ($direccion === SolicitudPlan::BAJADA) {
+            $formularios->validarMotivoAsesor($motivoSalida, $motivo);
+        }
+
+        return DB::transaction(function () use ($s, $vista, $direccion, $aplicacion, $motivo, $solicitante, $motivoSalida, $formularios) {
+            $sol = SolicitudPlan::create([
+                'suscripcion_id' => $s->id,
+                'plan_actual' => $s->plan,
+                'plan_nuevo' => $vista['plan_nuevo'],
+                'direccion' => $direccion,
+                'aplicacion' => $aplicacion,
+                'motivo' => trim($motivo),
+                'estado' => SolicitudPlan::SOLICITADA,
+                'solicitada_por' => $solicitante->id,
+            ]);
+            if ($direccion === SolicitudPlan::BAJADA) {
+                $formularios->registrarAsesor($s, FormularioSalida::EVENTO_BAJA_PLAN, $motivoSalida, $motivo, $solicitante, ['solicitud_plan_id' => $sol->id]);
+            }
+
+            return $sol;
+        });
     }
 
     /**

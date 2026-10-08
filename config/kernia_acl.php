@@ -13,7 +13,7 @@ return [
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
             'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar', 'salidas.solicitar',
-            'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver', 'correos.ver',
+            'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver', 'correos.ver', 'salidas.motivos',
         ]],
         'gerente' => ['nombre' => 'Gerente', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
