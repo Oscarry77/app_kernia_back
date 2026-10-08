@@ -23,6 +23,7 @@ class Producto extends Model
         'nombre_corto',
         'descripcion',
         'permite_ws_cntpaq',
+        'estatus_salida',
     ];
 
     protected $hidden = [
@@ -32,6 +33,8 @@ class Producto extends Model
     protected $casts = [
         'token_interno' => 'encrypted',
         'permite_ws_cntpaq' => 'boolean',
+        // 08-oct-2026: la app confirmó que reconoce retirado/en_finiquito/finiquitado (v2.3 §4.1).
+        'estatus_salida' => 'boolean',
     ];
 
     public function modulos(): HasMany

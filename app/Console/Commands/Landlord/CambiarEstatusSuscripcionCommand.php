@@ -48,6 +48,13 @@ class CambiarEstatusSuscripcionCommand extends Command
             return self::FAILURE;
         }
 
+        // 08-oct-2026: la salida (retiro, reactivación, finiquito) solo se mueve por solicitud con escalafón.
+        if (in_array($suscripcion->estatus, Suscripcion::ESTATUS_SALIDA, true)) {
+            $this->error("La suscripción está '{$suscripcion->estatus}'; se mueve solo con una solicitud de salida autorizada en el panel.");
+
+            return self::FAILURE;
+        }
+
         $pushOk = $estatusService->cambiarEstatus($suscripcion, $estatus, $this->option('motivo'));
 
         $this->info("Estatus local actualizado a '{$estatus}'.");

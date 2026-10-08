@@ -20,6 +20,17 @@ class Suscripcion extends Model
     public const ESTATUS_FALLIDO = 'fallido';
     public const ESTATUS_CANCELADO = 'cancelado';
 
+    // Estados de salida (08-oct-2026, estándar v2.3 §4.1 y §7).
+    public const ESTATUS_RETIRADO = 'retirado';         // baja lógica; base intacta; reversible por el escalafón
+    public const ESTATUS_EN_FINIQUITO = 'en_finiquito'; // solo el administrador entra, a Descargas
+    public const ESTATUS_FINIQUITADO = 'finiquitado';   // sin acceso; respaldo en retención
+    public const ESTATUS_ELIMINADO = 'eliminado';       // base borrada con constancia; irreversible
+
+    /** Estatus en los que la app acepta restablecer al administrador (v2.3 §4.1, Revisión 4). */
+    public const ESTATUS_RESTABLECER_ADMIN = [self::ESTATUS_ACTIVO, self::ESTATUS_EN_FINIQUITO];
+
+    public const ESTATUS_SALIDA = [self::ESTATUS_RETIRADO, self::ESTATUS_EN_FINIQUITO, self::ESTATUS_FINIQUITADO, self::ESTATUS_ELIMINADO];
+
     protected $fillable = [
         'cliente_id',
         'producto_id',
@@ -35,6 +46,7 @@ class Suscripcion extends Model
         'dias_gracia',
         'suspension_automatica',
         'activa_hasta',
+        'descarga_hasta',
         'db_driver',
         'db_host',
         'db_port',
@@ -60,6 +72,7 @@ class Suscripcion extends Model
         'fecha_contratacion' => 'date',
         'fecha_proximo_pago' => 'date',
         'activa_hasta' => 'date',
+        'descarga_hasta' => 'date',
         'provisionada_en' => 'datetime',
         'estatus_notificacion_ultimo_intento' => 'datetime',
         'suspension_automatica' => 'boolean',

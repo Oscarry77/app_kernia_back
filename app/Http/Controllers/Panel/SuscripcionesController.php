@@ -128,8 +128,9 @@ class SuscripcionesController extends Controller
     {
         $datos = $request->validate(['email' => ['nullable', 'email', 'max:150']]);
 
-        if ($suscripcion->estatus !== Suscripcion::ESTATUS_ACTIVO) {
-            return response()->json(['message' => 'Solo se restablece el acceso de una suscripción activa.'], 422);
+        // 08-oct-2026: también en `en_finiquito`, para que el administrador pueda descargar su respaldo (v2.3 §4.1).
+        if (! in_array($suscripcion->estatus, Suscripcion::ESTATUS_RESTABLECER_ADMIN, true)) {
+            return response()->json(['message' => 'Solo se restablece el acceso de una suscripción activa o en finiquito.'], 422);
         }
 
         $email = $datos['email'] ?? $suscripcion->admin_email;

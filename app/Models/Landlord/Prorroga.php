@@ -13,6 +13,7 @@ class Prorroga extends Model
     public const RECHAZADA = 'rechazada';
     public const VENCIDA = 'vencida';
     public const CERRADA_POR_PAGO = 'cerrada_por_pago';
+    public const CERRADA_POR_SALIDA = 'cerrada_por_salida'; // 08-oct-2026: la app se retiró o finiquitó
 
     protected $table = 'prorrogas';
 

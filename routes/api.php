@@ -8,6 +8,7 @@ use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\CorreosController;
+use App\Http\Controllers\Panel\SalidasController;
 use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Panel\AuditoriaController;
 use App\Http\Controllers\Panel\EscalafonController;
@@ -51,6 +52,7 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('prorrogas/motivos', [ProrrogasController::class, 'motivos']);
         Route::get('suscripciones/{suscripcion}/plan/vista-previa', [CambiosPlanController::class, 'vistaPrevia']);
         Route::get('suscripciones/{suscripcion}/cambios-plan', [CambiosPlanController::class, 'index']);
+        Route::get('suscripciones/{suscripcion}/salidas', [SalidasController::class, 'index']);
     });
 
     Route::post('clientes', [ClientesController::class, 'store'])->middleware('permiso:clientes.crear');
@@ -87,6 +89,16 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('cambios-plan/pendientes', [CambiosPlanController::class, 'pendientes']);
     });
     Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan'])->middleware('permiso:planes.aplicar_directo');
+
+    // Salida (08-oct-2026): "Retirar app", "Reactivar" y "Finiquitar" por
+    // solicitud con autorización del escalafón; el retiro y el finiquito se
+    // aplican en el corte de las 00:00.
+    Route::middleware('permiso:salidas.solicitar')->group(function () {
+        Route::post('suscripciones/{suscripcion}/salidas', [SalidasController::class, 'solicitar']);
+        Route::post('salidas/{salida}/resolver', [SalidasController::class, 'resolver']);
+        Route::post('salidas/{salida}/cancelar', [SalidasController::class, 'cancelar']);
+        Route::get('salidas/pendientes', [SalidasController::class, 'pendientes']);
+    });
 
     // Catálogo
     Route::middleware('permiso:catalogo.gestionar')->group(function () {

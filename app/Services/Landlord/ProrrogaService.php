@@ -145,6 +145,13 @@ class ProrrogaService
         Prorroga::where('suscripcion_id', $s->id)->where('estado', Prorroga::SOLICITADA)->update(['estado' => 'cancelada']);
     }
 
+    /** 08-oct-2026: retirar o finiquitar la app cierra la prórroga vigente y cancela las pendientes. */
+    public function cerrarPorSalida(Suscripcion $s): void
+    {
+        Prorroga::where('suscripcion_id', $s->id)->where('estado', Prorroga::AUTORIZADA)->update(['estado' => Prorroga::CERRADA_POR_SALIDA]);
+        Prorroga::where('suscripcion_id', $s->id)->where('estado', Prorroga::SOLICITADA)->update(['estado' => 'cancelada']);
+    }
+
     /** Marca como vencidas las prórrogas cuyo último día ya pasó. */
     public function marcarVencidas(): int
     {

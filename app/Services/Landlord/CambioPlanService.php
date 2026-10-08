@@ -273,8 +273,8 @@ class CambioPlanService
             return $sol->fresh();
         };
 
-        if ($s->estatus === Suscripcion::ESTATUS_CANCELADO) {
-            $sol->update(['estado' => SolicitudPlan::CANCELADA, 'comentario_resolucion' => 'La suscripción fue cancelada antes de aplicar el cambio.']);
+        if ($s->estatus === Suscripcion::ESTATUS_CANCELADO || in_array($s->estatus, Suscripcion::ESTATUS_SALIDA, true)) {
+            $sol->update(['estado' => SolicitudPlan::CANCELADA, 'comentario_resolucion' => 'La suscripción fue cancelada o dada de baja antes de aplicar el cambio.']);
 
             return $sol->fresh();
         }

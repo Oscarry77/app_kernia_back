@@ -76,7 +76,8 @@ class VigenciaService
     public function aviso(Suscripcion $s): ?array
     {
         // 05-oct-2026: el aviso de vencimiento manda; si no hay, el de una baja de plan programada.
-        return $this->avisoVencimiento($s) ?? ($s->estatus === Suscripcion::ESTATUS_ACTIVO
+        // 08-oct-2026: antes que ambos, el de una salida (retiro o finiquito programado, o el plazo de descarga).
+        return app(SalidaService::class)->aviso($s) ?? $this->avisoVencimiento($s) ?? ($s->estatus === Suscripcion::ESTATUS_ACTIVO
             ? app(CambioPlanService::class)->avisoProgramado($s)
             : null);
     }

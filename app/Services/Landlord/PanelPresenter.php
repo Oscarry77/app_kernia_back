@@ -4,6 +4,7 @@ namespace App\Services\Landlord;
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
 use App\Models\Landlord\SolicitudPlan;
+use App\Models\Landlord\SolicitudSalida;
 use App\Models\Landlord\Suscripcion;
 
 /**
@@ -28,6 +29,7 @@ class PanelPresenter
             'nombre_corto' => $p->nombre_corto,
             'descripcion' => $p->descripcion,
             'permite_ws_cntpaq' => (bool) $p->permite_ws_cntpaq,
+            'estatus_salida' => (bool) $p->estatus_salida,
             'modo_datos' => $p->modo_datos,
             'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre', 'requiere'])->toArray(),
             'planes' => $p->planes()->when(! $completo, fn ($q) => $q->where('activo', true))->orderBy('orden')->get()
@@ -128,6 +130,35 @@ class PanelPresenter
             'aviso_error' => $s->estatus_notificacion_error,
             'cambio_plan' => ($abierta = SolicitudPlan::with('solicitante:id,nombre')->where('suscripcion_id', $s->id)
                 ->whereIn('estado', SolicitudPlan::ABIERTAS)->latest('id')->first()) ? $this->solicitudPlan($abierta) : null,
+            // 08-oct-2026: estados de salida.
+            'descarga_hasta' => $s->descarga_hasta?->toDateString(),
+            'salida' => ($salida = SolicitudSalida::with('solicitante:id,nombre')->where('suscripcion_id', $s->id)
+                ->whereIn('estado', SolicitudSalida::ABIERTAS)->latest('id')->first()) ? $this->solicitudSalida($salida) : null,
+            'salidas_posibles' => app(SalidaService::class)->opciones($s),
+        ];
+    }
+
+    /** Solicitud de salida: retiro, reactivación o finiquito (08-oct-2026). */
+    public function solicitudSalida(SolicitudSalida $sol): array
+    {
+        return [
+            'id' => $sol->id,
+            'suscripcion_id' => $sol->suscripcion_id,
+            'tipo' => $sol->tipo,
+            'estatus_anterior' => $sol->estatus_anterior,
+            'motivo' => $sol->motivo,
+            'conformidad_tipo' => $sol->conformidad_tipo,
+            'conformidad_referencia' => $sol->conformidad_referencia,
+            'estado' => $sol->estado,
+            'fecha_efectiva' => $sol->fecha_efectiva?->toDateString(),
+            'solicitada_por' => $sol->solicitante?->nombre,
+            'resuelta_por' => $sol->resolutor?->nombre,
+            'nivel_autorizacion' => $sol->nivel_autorizacion,
+            'comentario_resolucion' => $sol->comentario_resolucion,
+            'error' => $sol->error,
+            'solicitada_en' => $sol->created_at?->toIso8601String(),
+            'resuelta_en' => $sol->resuelta_en?->toIso8601String(),
+            'aplicada_en' => $sol->aplicada_en?->toIso8601String(),
         ];
     }
 

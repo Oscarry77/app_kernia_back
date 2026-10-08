@@ -3,8 +3,10 @@ namespace App\Console\Commands\Landlord;
 
 use App\Models\Landlord\Auditoria;
 use App\Models\Landlord\SolicitudPlan;
+use App\Models\Landlord\SolicitudSalida;
 use App\Models\Landlord\Suscripcion;
 use App\Services\Landlord\CambioPlanService;
+use App\Services\Landlord\SalidaService;
 use App\Services\Landlord\VigenciaService;
 use Illuminate\Console\Command;
 
@@ -15,6 +17,9 @@ use Illuminate\Console\Command;
  *
  * 05-oct-2026: antes aplica los cambios de plan programados (bajas en la
  * renovación) cuya fecha ya llegó.
+ *
+ * 08-oct-2026: lo primero, las salidas programadas (retiro y finiquito): una
+ * app que sale no debe recibir además un cambio de plan ni una suspensión.
  */
 class ProcesarVencimientosCommand extends Command
 {
@@ -22,8 +27,15 @@ class ProcesarVencimientosCommand extends Command
 
     protected $description = 'Suspende las suscripciones vencidas (00:00 hora de México); idempotente.';
 
-    public function handle(VigenciaService $vigencias, CambioPlanService $cambios): int
+    public function handle(VigenciaService $vigencias, CambioPlanService $cambios, SalidaService $salidas): int
     {
+        foreach ($salidas->aplicarProgramadas() as $sol) {
+            $destino = "{$sol->suscripcion->cliente?->slug}/{$sol->suscripcion->producto->slug}";
+            $sol->estado === SolicitudSalida::APLICADA
+                ? $this->info("Salida aplicada ({$sol->tipo}): {$destino} → {$sol->suscripcion->fresh()->estatus}")
+                : $this->warn("Salida {$sol->estado} ({$sol->tipo}): {$destino}".($sol->error ? " ({$sol->error})" : ''));
+        }
+
         foreach ($cambios->aplicarProgramadas() as $sol) {
             $destino = "{$sol->suscripcion->cliente?->slug}/{$sol->suscripcion->producto->slug}: {$sol->plan_actual} → {$sol->plan_nuevo}";
             $sol->estado === SolicitudPlan::APLICADA

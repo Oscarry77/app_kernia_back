@@ -16,4 +16,8 @@ return [
     // Banner en las apps (`aviso` del resolve).
     'aviso_info_dias' => 30,
     'aviso_advertencia_dias_habiles' => 5,
+
+    // Finiquito (08-oct-2026, decisión del dueño del 05-oct): días que el
+    // administrador del cliente tiene para descargar su respaldo.
+    'finiquito_descarga_dias' => 15,
 ];

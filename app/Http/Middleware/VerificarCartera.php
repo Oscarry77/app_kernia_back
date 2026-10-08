@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Prorroga;
 use App\Models\Landlord\SolicitudPlan;
+use App\Models\Landlord\SolicitudSalida;
 use App\Models\Landlord\Suscripcion;
 use Closure;
 use Illuminate\Http\Request;
@@ -11,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Cartera (fase 3, 02-oct-2026): si la ruta apunta a un cliente, una
- * suscripción o una prórroga, el operador debe poder ver a ese cliente. Un
+ * suscripción, una prórroga o una solicitud, el operador debe poder ver a ese cliente. Un
  * vendedor solo ve su cartera; fuera de ella responde 404, igual que si el
  * registro no existiera (no se revela qué clientes hay).
  *
@@ -33,6 +34,7 @@ class VerificarCartera
             $route?->parameter('suscripcion') instanceof Suscripcion => $route->parameter('suscripcion')->cliente,
             $route?->parameter('prorroga') instanceof Prorroga => $route->parameter('prorroga')->suscripcion->cliente,
             $route?->parameter('solicitud') instanceof SolicitudPlan => $route->parameter('solicitud')->suscripcion->cliente,
+            $route?->parameter('salida') instanceof SolicitudSalida => $route->parameter('salida')->suscripcion->cliente,
             default => null,
         };
 

@@ -39,8 +39,8 @@ class RestablecerAdminCommand extends Command
             return self::FAILURE;
         }
 
-        if ($suscripcion->estatus !== Suscripcion::ESTATUS_ACTIVO) {
-            $this->error("La suscripción está '{$suscripcion->estatus}'; solo se restablece el acceso de una suscripción activa.");
+        if (! in_array($suscripcion->estatus, Suscripcion::ESTATUS_RESTABLECER_ADMIN, true)) {
+            $this->error("La suscripción está '{$suscripcion->estatus}'; solo se restablece el acceso de una suscripción activa o en finiquito.");
 
             return self::FAILURE;
         }

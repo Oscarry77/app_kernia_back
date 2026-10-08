@@ -31,7 +31,8 @@ class VigenciasController extends Controller
         $dias = max(1, min(366, (int) $request->query('dias', 30)));
 
         $filas = Suscripcion::with(['cliente', 'producto'])
-            ->whereNotIn('estatus', [Suscripcion::ESTATUS_CANCELADO, Suscripcion::ESTATUS_FALLIDO])
+            // 08-oct-2026: una app retirada o en finiquito ya no tiene vigencia que cobrar.
+            ->whereNotIn('estatus', [Suscripcion::ESTATUS_CANCELADO, Suscripcion::ESTATUS_FALLIDO, ...Suscripcion::ESTATUS_SALIDA])
             // 05-oct-2026: solo clientes comerciales (demo, capacitación y prueba no tienen vigencia).
             ->whereIn('cliente_id', Cliente::visiblesPara($request->user('api'))->where('tipo', Cliente::TIPO_COMERCIAL)->select('id'))
             ->get()
