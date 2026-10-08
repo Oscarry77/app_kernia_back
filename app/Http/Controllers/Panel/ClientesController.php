@@ -43,7 +43,8 @@ class ClientesController extends Controller
 
     public function store(DatosFiscalesClienteRequest $request): JsonResponse
     {
-        $cliente = new Cliente([...$request->datosCliente(), 'slug' => $request->validated('slug'), 'estatus' => Cliente::ESTATUS_ACTIVO]);
+        $cliente = new Cliente([...$request->datosCliente(), 'slug' => $request->validated('slug'), 'estatus' => Cliente::ESTATUS_ACTIVO,
+            'tipo' => $request->tipoCliente()]);
         $cliente->nombre = $cliente->nombreParaMostrar();
         $cliente->save();
 
@@ -53,20 +54,23 @@ class ClientesController extends Controller
             $cliente->operadores()->attach($operador->id, ['asignado_por' => $operador->id]);
         }
 
-        Auditoria::registrar('cliente.creado', $cliente, null, null, $cliente->only(['slug', 'nombre', 'tipo_persona', 'rfc']));
+        Auditoria::registrar('cliente.creado', $cliente, null, null, $cliente->only(['slug', 'nombre', 'tipo', 'tipo_persona', 'rfc']));
 
         return response()->json(['data' => $this->presenter->cliente($cliente, detalle: true)], 201);
     }
 
     public function update(DatosFiscalesClienteRequest $request, Cliente $cliente): JsonResponse
     {
-        $antes = $cliente->only([...Cliente::CAMPOS_FISCALES, 'nombre', 'notas']);
+        $antes = $cliente->only([...Cliente::CAMPOS_FISCALES, 'nombre', 'notas', 'tipo']);
 
         $cliente->fill($request->datosCliente());
+        if ($tipo = $request->tipoCliente()) {
+            $cliente->tipo = $tipo;
+        }
         $cliente->nombre = $cliente->nombreParaMostrar();
         $cliente->save();
 
-        $despues = $cliente->only([...Cliente::CAMPOS_FISCALES, 'nombre', 'notas']);
+        $despues = $cliente->only([...Cliente::CAMPOS_FISCALES, 'nombre', 'notas', 'tipo']);
         $cambios = array_keys(array_diff_assoc(array_map('strval', array_filter($despues, 'is_scalar')), array_map('strval', array_filter($antes, 'is_scalar'))));
         Auditoria::registrar('cliente.editado', $cliente, null,
             array_intersect_key($antes, array_flip($cambios)),

@@ -3,6 +3,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Prorroga;
+use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\Suscripcion;
 use Closure;
 use Illuminate\Http\Request;
@@ -13,13 +14,16 @@ use Symfony\Component\HttpFoundation\Response;
  * suscripción o una prórroga, el operador debe poder ver a ese cliente. Un
  * vendedor solo ve su cartera; fuera de ella responde 404, igual que si el
  * registro no existiera (no se revela qué clientes hay).
+ *
+ * 05-oct-2026: aplica a todos los roles, porque los clientes de prueba solo
+ * los ve el superadmin; y cubre las solicitudes de cambio de plan.
  */
 class VerificarCartera
 {
     public function handle(Request $request, Closure $next): Response
     {
         $operador = $request->user('api');
-        if (! $operador || ! $operador->tieneCartera()) {
+        if (! $operador || $operador->esSuperadmin()) {
             return $next($request);
         }
 
@@ -28,6 +32,7 @@ class VerificarCartera
             $route?->parameter('cliente') instanceof Cliente => $route->parameter('cliente'),
             $route?->parameter('suscripcion') instanceof Suscripcion => $route->parameter('suscripcion')->cliente,
             $route?->parameter('prorroga') instanceof Prorroga => $route->parameter('prorroga')->suscripcion->cliente,
+            $route?->parameter('solicitud') instanceof SolicitudPlan => $route->parameter('solicitud')->suscripcion->cliente,
             default => null,
         };
 

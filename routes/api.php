@@ -3,6 +3,7 @@
 use App\Http\Controllers\Landlord\LandlordAuthController;
 use App\Http\Controllers\Landlord\LandlordTenantController;
 use App\Http\Controllers\Landlord\SolicitarPasswordController;
+use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\SuscripcionesController;
@@ -46,6 +47,8 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('suscripciones/{suscripcion}/metricas', [SuscripcionesController::class, 'metricas']);
         Route::get('suscripciones/{suscripcion}/prorrogas', [ProrrogasController::class, 'index']);
         Route::get('prorrogas/motivos', [ProrrogasController::class, 'motivos']);
+        Route::get('suscripciones/{suscripcion}/plan/vista-previa', [CambiosPlanController::class, 'vistaPrevia']);
+        Route::get('suscripciones/{suscripcion}/cambios-plan', [CambiosPlanController::class, 'index']);
     });
 
     Route::post('clientes', [ClientesController::class, 'store'])->middleware('permiso:clientes.crear');
@@ -53,7 +56,6 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
 
     Route::middleware('permiso:suscripciones.gestionar')->group(function () {
         Route::post('clientes/{cliente}/suscripciones', [SuscripcionesController::class, 'store']);
-        Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan']);
         Route::post('suscripciones/{suscripcion}/extras', [SuscripcionesController::class, 'agregarExtra']);
         Route::patch('suscripciones/{suscripcion}/ws-cntpaq', [SuscripcionesController::class, 'wsCntpaq']);
         Route::post('suscripciones/{suscripcion}/reintentar', [SuscripcionesController::class, 'reintentar']);
@@ -72,6 +74,17 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::post('prorrogas/{prorroga}/resolver', [ProrrogasController::class, 'resolver']);
         Route::get('prorrogas/pendientes', [ProrrogasController::class, 'pendientes']);
     });
+
+    // Cambio de plan (05-oct-2026): por solicitud con autorización del
+    // escalafón, para subir y para bajar. El cambio directo queda solo para
+    // el superadmin (correcciones), con bitácora.
+    Route::middleware('permiso:planes.solicitar')->group(function () {
+        Route::post('suscripciones/{suscripcion}/cambios-plan', [CambiosPlanController::class, 'solicitar']);
+        Route::post('cambios-plan/{solicitud}/resolver', [CambiosPlanController::class, 'resolver']);
+        Route::post('cambios-plan/{solicitud}/cancelar', [CambiosPlanController::class, 'cancelar']);
+        Route::get('cambios-plan/pendientes', [CambiosPlanController::class, 'pendientes']);
+    });
+    Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan'])->middleware('permiso:planes.aplicar_directo');
 
     // Catálogo
     Route::middleware('permiso:catalogo.gestionar')->group(function () {

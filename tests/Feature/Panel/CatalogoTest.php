@@ -98,6 +98,34 @@ class CatalogoTest extends TestCase
         }
     }
 
+    /** 05-oct-2026: con clientes, el catálogo no puede quitar módulos ni reducir límites (afectaría a todos sin autorización). */
+    public function test_plan_con_clientes_no_pierde_modulos_ni_reduce_limites(): void
+    {
+        $s = $this->suscripcion();
+        $editar = fn (array $modulos, array $limites) => $this->withHeaders($this->auth())->putJson('/api/catalogo/productos/comercializa/planes/basico', [
+            'nombre' => 'Básico', 'modulos' => $modulos, 'limites' => $limites, 'activo' => true,
+        ]);
+
+        $editar(['ventas'], ['max_empresas' => 4])->assertStatus(422)
+            ->assertJsonPath('message', 'El plan Básico tiene 1 cliente: no se puede guardar porque quita Compras. Crea un plan nuevo y cambia a cada cliente con una solicitud de cambio de plan.');
+        $editar(['ventas', 'compras'], ['max_empresas' => 3])->assertStatus(422);
+        $this->assertSame(['ventas', 'compras'], $s->fresh()->clavesModulosActivos());
+        $this->assertSame(['max_empresas' => 4], app(SuscripcionPlanService::class)->limitesEfectivos($s->fresh()));
+
+        // Ampliar sí: quitar la clave es "sin límite"
+        $editar(['ventas', 'compras'], [])->assertOk();
+        // Descripción comercial, sin tocar lo demás
+        $this->withHeaders($this->auth())->putJson('/api/catalogo/productos/comercializa/planes/basico', [
+            'nombre' => 'Básico', 'descripcion' => 'Para empezar', 'modulos' => ['ventas', 'compras'], 'limites' => [], 'activo' => true,
+        ])->assertOk()->assertJsonPath('data.planes.0.descripcion', 'Para empezar');
+
+        // Sin clientes, el plan se edita libremente
+        ProductoPlan::create(['producto_id' => $this->com->id, 'codigo' => 'vacio', 'nombre' => 'Vacío', 'modulos' => ['ventas', 'compras'], 'limites' => ['max_empresas' => 9]]);
+        $this->withHeaders($this->auth())->putJson('/api/catalogo/productos/comercializa/planes/vacio', [
+            'nombre' => 'Vacío', 'modulos' => ['ventas'], 'limites' => ['max_empresas' => 1], 'activo' => true,
+        ])->assertOk();
+    }
+
     public function test_desactivar_plan_o_extra_no_le_quita_nada_a_quien_ya_lo_tiene(): void
     {
         $s = $this->suscripcion();

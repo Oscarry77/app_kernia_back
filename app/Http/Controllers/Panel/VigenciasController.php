@@ -32,7 +32,8 @@ class VigenciasController extends Controller
 
         $filas = Suscripcion::with(['cliente', 'producto'])
             ->whereNotIn('estatus', [Suscripcion::ESTATUS_CANCELADO, Suscripcion::ESTATUS_FALLIDO])
-            ->whereIn('cliente_id', Cliente::visiblesPara($request->user('api'))->select('id'))
+            // 05-oct-2026: solo clientes comerciales (demo, capacitación y prueba no tienen vigencia).
+            ->whereIn('cliente_id', Cliente::visiblesPara($request->user('api'))->where('tipo', Cliente::TIPO_COMERCIAL)->select('id'))
             ->get()
             ->map(fn (Suscripcion $s) => [
                 'id' => $s->id,

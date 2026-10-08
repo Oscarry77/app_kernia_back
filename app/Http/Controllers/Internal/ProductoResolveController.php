@@ -16,9 +16,8 @@ use Illuminate\Http\Request;
  * GUIA_INTEGRACION_APP_KERNIA_v1.md §4.1. El {producto} ya viene validado
  * contra el token por VerificarTokenProducto (attributes.producto).
  *
- * `aviso` siempre viaja null por ahora: el motor de recordatorios/prórrogas
- * (guía §5.1 -- scheduler, plantillas_notificacion, prorrogas) todavía no se
- * construye. Las apps ya están preparadas para recibirlo nullable.
+ * `aviso` (banner no bloqueante en la app): vencimiento (fase 2) o, si no
+ * hay, una baja de plan programada (05-oct-2026). Null si no hay nada que avisar.
  */
 class ProductoResolveController extends Controller
 {

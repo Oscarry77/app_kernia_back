@@ -9,7 +9,7 @@ class ProductoPlan extends Model
 {
     protected $table = 'producto_planes';
 
-    protected $fillable = ['producto_id', 'codigo', 'nombre', 'modulos', 'limites', 'orden', 'activo'];
+    protected $fillable = ['producto_id', 'codigo', 'nombre', 'descripcion', 'modulos', 'limites', 'orden', 'activo'];
 
     protected $casts = [
         'modulos' => 'array',

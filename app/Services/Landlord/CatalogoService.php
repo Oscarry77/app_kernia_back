@@ -20,6 +20,10 @@ use RuntimeException;
  *    siguiente `resolve`.
  *  - Desactivar un plan o extra impide asignarlo; lo ya contratado sigue
  *    vigente (Producto::planVigente y los extras se suman igual).
+ *  - 05-oct-2026: un plan CON clientes no puede perder módulos ni reducir
+ *    límites desde el catálogo (afectaría a todos de golpe, sin autorización).
+ *    Para eso se crea otro plan y se cambia a cada cliente con una solicitud
+ *    autorizada por el escalafón. Agregar módulos o ampliar límites sí se puede.
  */
 class CatalogoService
 {
@@ -38,6 +42,9 @@ class CatalogoService
         $modulos = array_values(array_unique($datos['modulos'] ?? []));
         $this->validarModulos($producto, $modulos);
         $limites = $this->normalizarLimites($datos['limites'] ?? []);
+        if ($plan && ($clientes = $this->suscripcionesConPlan($producto, $plan->codigo)) > 0) {
+            $this->impedirReduccion($producto, $plan, $modulos, $limites, $clientes);
+        }
 
         return DB::transaction(function () use ($producto, $plan, $datos, $modulos, $limites) {
             $antes = $plan?->modulos ?? [];
@@ -45,6 +52,7 @@ class CatalogoService
             $plan ??= new ProductoPlan(['producto_id' => $producto->id, 'codigo' => $datos['codigo']]);
             $plan->fill([
                 'nombre' => $datos['nombre'],
+                'descripcion' => array_key_exists('descripcion', $datos) ? $datos['descripcion'] : $plan->descripcion,
                 'modulos' => $producto->modulos()->exists() ? $modulos : null,
                 'limites' => $limites,
                 'orden' => $datos['orden'] ?? $plan->orden ?? 0,
@@ -77,6 +85,34 @@ class CatalogoService
         ])->save();
 
         return $extra;
+    }
+
+    /** @param array<string,int|null> $limites */
+    private function impedirReduccion(Producto $producto, ProductoPlan $plan, array $modulos, array $limites, int $clientes): void
+    {
+        $catalogo = $producto->modulos()->pluck('nombre', 'clave');
+        $quitados = array_diff($plan->modulos ?? [], $modulos);
+        $reducidos = [];
+        foreach ($plan->limites ?? [] as $clave => $antes) {
+            $despues = array_key_exists($clave, $limites) ? $limites[$clave] : null;
+            // Quitar la clave equivale a "sin límite" (ampliar); null → número o un número menor es reducir.
+            if ($despues !== null && ($antes === null || $despues < $antes)) {
+                $reducidos[] = $clave;
+            }
+        }
+
+        if (! $quitados && ! $reducidos) {
+            return;
+        }
+
+        $detalle = array_filter([
+            $quitados ? 'quita '.implode(', ', array_map(fn ($c) => $catalogo[$c] ?? $c, $quitados)) : null,
+            $reducidos ? 'reduce '.implode(', ', $reducidos) : null,
+        ]);
+        $n = $clientes === 1 ? '1 cliente' : "{$clientes} clientes";
+
+        throw new RuntimeException("El plan {$plan->nombre} tiene {$n}: no se puede guardar porque ".implode(' y ', $detalle)
+            .'. Crea un plan nuevo y cambia a cada cliente con una solicitud de cambio de plan.');
     }
 
     /** Aplica los módulos del plan a cada suscripción que lo tiene. */

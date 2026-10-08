@@ -19,6 +19,22 @@ class Cliente extends Model
     public const ESTATUS_SUSPENDIDO = 'suspendido';
     public const ESTATUS_BAJA = 'baja';
 
+    // (05-oct-2026) Tipo de cliente. Demo y capacitación quedan fuera de
+    // vigencias, cortes y avisos de cobro y los ven todos los vendedores;
+    // prueba (fixtures técnicos y el interno labormx) solo el superadmin.
+    public const TIPO_COMERCIAL = 'comercial';
+    public const TIPO_DEMO = 'demo';
+    public const TIPO_CAPACITACION = 'capacitacion';
+    public const TIPO_PRUEBA = 'prueba';
+
+    public const TIPOS = [self::TIPO_COMERCIAL, self::TIPO_DEMO, self::TIPO_CAPACITACION, self::TIPO_PRUEBA];
+
+    /** Prefijo de slug obligatorio al dar de alta (para que no se confundan tampoco dentro de las apps). */
+    public const PREFIJOS_SLUG = [self::TIPO_DEMO => 'demo-', self::TIPO_CAPACITACION => 'cap-'];
+
+    /** Tipos que todos los operadores con cartera ven, aunque no estén en ella. */
+    public const TIPOS_COMPARTIDOS = [self::TIPO_DEMO, self::TIPO_CAPACITACION];
+
     public const PERSONA_MORAL = 'moral';
     public const PERSONA_FISICA = 'fisica';
 
@@ -36,6 +52,7 @@ class Cliente extends Model
         'slug',
         'nombre',
         'estatus',
+        'tipo',
         'notas',
         ...self::CAMPOS_FISCALES,
     ];
@@ -55,12 +72,26 @@ class Cliente extends Model
         return $this->belongsToMany(LandlordAdmin::class, 'cliente_usuario', 'cliente_id', 'usuario_id')->withTimestamps();
     }
 
-    /** Clientes que puede ver un operador: todos, o solo su cartera si es vendedor. */
+    /**
+     * Clientes que puede ver un operador: los de prueba solo el superadmin; un
+     * vendedor, su cartera más los de demo y capacitación; los demás, todos.
+     */
     public function scopeVisiblesPara(\Illuminate\Database\Eloquent\Builder $query, LandlordAdmin $operador): \Illuminate\Database\Eloquent\Builder
     {
+        if (! $operador->esSuperadmin()) {
+            $query->where('tipo', '!=', self::TIPO_PRUEBA);
+        }
+
         return $operador->tieneCartera()
-            ? $query->whereHas('operadores', fn ($q) => $q->whereKey($operador->id))
+            ? $query->where(fn ($q) => $q->whereIn('tipo', self::TIPOS_COMPARTIDOS)
+                ->orWhereHas('operadores', fn ($o) => $o->whereKey($operador->id)))
             : $query;
+    }
+
+    /** Cuenta para vigencias, cortes, avisos de cobro y métricas de negocio. */
+    public function esComercial(): bool
+    {
+        return ($this->tipo ?? self::TIPO_COMERCIAL) === self::TIPO_COMERCIAL;
     }
 
     public function estaActivo(): bool

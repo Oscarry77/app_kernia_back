@@ -3,6 +3,7 @@ namespace App\Services\Landlord;
 
 use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Producto;
+use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\Suscripcion;
 
 /**
@@ -31,7 +32,7 @@ class PanelPresenter
             'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre', 'requiere'])->toArray(),
             'planes' => $p->planes()->when(! $completo, fn ($q) => $q->where('activo', true))->orderBy('orden')->get()
                 ->map(fn ($pl) => [
-                    'codigo' => $pl->codigo, 'nombre' => $pl->nombre, 'modulos' => $pl->modulos, 'limites' => $pl->limites,
+                    'codigo' => $pl->codigo, 'nombre' => $pl->nombre, 'descripcion' => $pl->descripcion, 'modulos' => $pl->modulos, 'limites' => $pl->limites,
                     'orden' => $pl->orden, 'activo' => (bool) $pl->activo,
                     ...($completo ? ['clientes' => $catalogo->suscripcionesConPlan($p, $pl->codigo)] : []),
                 ])
@@ -54,6 +55,7 @@ class PanelPresenter
             'rfc' => $c->rfc,
             'nombre_comercial' => $c->nombre_comercial,
             'estatus' => $c->estatus,
+            'tipo' => $c->tipo ?? Cliente::TIPO_COMERCIAL,
             'datos_fiscales_completos' => $c->datosFiscalesCompletos(),
             'creado' => $c->created_at?->toDateString(),
             'suscripciones' => $suscripciones->map(fn ($s) => $detalle ? $this->suscripcion($s) : $this->resumen($s))->all(),
@@ -124,6 +126,36 @@ class PanelPresenter
             'provisionada_en' => $s->provisionada_en?->toDateTimeString(),
             'aviso_intentos' => $s->estatus_notificacion_intentos,
             'aviso_error' => $s->estatus_notificacion_error,
+            'cambio_plan' => ($abierta = SolicitudPlan::with('solicitante:id,nombre')->where('suscripcion_id', $s->id)
+                ->whereIn('estado', SolicitudPlan::ABIERTAS)->latest('id')->first()) ? $this->solicitudPlan($abierta) : null,
+        ];
+    }
+
+    /** Solicitud de cambio de plan (05-oct-2026). */
+    public function solicitudPlan(SolicitudPlan $sol): array
+    {
+        $producto = $sol->suscripcion->producto;
+
+        return [
+            'id' => $sol->id,
+            'suscripcion_id' => $sol->suscripcion_id,
+            'plan_actual' => $sol->plan_actual,
+            'plan_actual_nombre' => $producto->planVigente($sol->plan_actual)?->nombre,
+            'plan_nuevo' => $sol->plan_nuevo,
+            'plan_nuevo_nombre' => $producto->planVigente($sol->plan_nuevo)?->nombre,
+            'direccion' => $sol->direccion,
+            'aplicacion' => $sol->aplicacion,
+            'fecha_efectiva' => $sol->fecha_efectiva?->toDateString(),
+            'motivo' => $sol->motivo,
+            'estado' => $sol->estado,
+            'solicitada_por' => $sol->solicitante?->nombre,
+            'resuelta_por' => $sol->resolutor?->nombre,
+            'nivel_autorizacion' => $sol->nivel_autorizacion,
+            'comentario_resolucion' => $sol->comentario_resolucion,
+            'error' => $sol->error,
+            'solicitada_en' => $sol->created_at?->toIso8601String(),
+            'resuelta_en' => $sol->resuelta_en?->toIso8601String(),
+            'aplicada_en' => $sol->aplicada_en?->toIso8601String(),
         ];
     }
 }

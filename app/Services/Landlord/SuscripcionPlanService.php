@@ -91,10 +91,18 @@ class SuscripcionPlanService
     public function limitesEfectivos(Suscripcion $suscripcion): ?array
     {
         $plan = $suscripcion->producto->planVigente($suscripcion->plan);
-        if (! $plan) {
-            return null;
-        }
 
+        return $plan ? $this->limitesConPlan($suscripcion, $plan) : null;
+    }
+
+    /**
+     * Límites que tendría la suscripción con `$plan` y sus extras actuales
+     * (05-oct-2026: vista previa de un cambio de plan).
+     *
+     * @return array<string, int|null>
+     */
+    public function limitesConPlan(Suscripcion $suscripcion, ProductoPlan $plan): array
+    {
         $limites = $plan->limites ?? [];
 
         // Todos los extras, activos o no: desactivar un extra impide venderlo

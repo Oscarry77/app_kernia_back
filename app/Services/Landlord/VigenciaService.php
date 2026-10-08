@@ -75,7 +75,19 @@ class VigenciaService
      */
     public function aviso(Suscripcion $s): ?array
     {
+        // 05-oct-2026: el aviso de vencimiento manda; si no hay, el de una baja de plan programada.
+        return $this->avisoVencimiento($s) ?? ($s->estatus === Suscripcion::ESTATUS_ACTIVO
+            ? app(CambioPlanService::class)->avisoProgramado($s)
+            : null);
+    }
+
+    private function avisoVencimiento(Suscripcion $s): ?array
+    {
         if ($s->estatus !== Suscripcion::ESTATUS_ACTIVO || ! $s->fecha_proximo_pago) {
+            return null;
+        }
+        // 05-oct-2026: demo, capacitación y prueba no reciben avisos de cobro.
+        if ($s->cliente && ! $s->cliente->esComercial()) {
             return null;
         }
 
@@ -186,6 +198,8 @@ class VigenciaService
         $candidatas = Suscripcion::with(['cliente', 'producto'])
             ->where('estatus', Suscripcion::ESTATUS_ACTIVO)
             ->where('suspension_automatica', true)
+            // 05-oct-2026: solo clientes comerciales; demo, capacitación y prueba nunca se suspenden por vencimiento.
+            ->whereHas('cliente', fn ($q) => $q->where('tipo', \App\Models\Landlord\Cliente::TIPO_COMERCIAL))
             ->whereNotNull('fecha_proximo_pago')
             ->where(fn ($q) => $q->whereNull('activa_hasta')->orWhere('activa_hasta', '<', $hoy))
             ->get();

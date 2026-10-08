@@ -97,6 +97,7 @@ class CatalogoController extends Controller
     {
         return [
             'nombre' => ['required', 'string', 'max:120'],
+            'descripcion' => ['nullable', 'string', 'max:2000'],
             'modulos' => ['nullable', 'array'],
             'modulos.*' => ['string'],
             'limites' => ['nullable', 'array'],
@@ -115,7 +116,7 @@ class CatalogoController extends Controller
 
     private function guardarPlan(Producto $producto, $plan, array $datos, string $accion): JsonResponse
     {
-        $antes = $plan?->only(['nombre', 'modulos', 'limites', 'orden', 'activo']);
+        $antes = $plan?->only(['nombre', 'descripcion', 'modulos', 'limites', 'orden', 'activo']);
 
         try {
             $plan = $this->catalogo->guardarPlan($producto, $plan, $datos);
@@ -125,7 +126,7 @@ class CatalogoController extends Controller
 
         $afectados = $this->catalogo->suscripcionesConPlan($producto, $plan->codigo);
         Auditoria::registrar($accion, null, null, $antes ? ['producto' => $producto->slug, 'plan' => $plan->codigo, ...$antes] : null,
-            ['producto' => $producto->slug, 'plan' => $plan->codigo, ...$plan->only(['nombre', 'modulos', 'limites', 'orden', 'activo']), 'clientes_afectados' => $afectados]);
+            ['producto' => $producto->slug, 'plan' => $plan->codigo, ...$plan->only(['nombre', 'descripcion', 'modulos', 'limites', 'orden', 'activo']), 'clientes_afectados' => $afectados]);
 
         return response()->json(['data' => $this->presenter->producto($producto->fresh(), true), 'clientes_afectados' => $afectados], $antes ? 200 : 201);
     }

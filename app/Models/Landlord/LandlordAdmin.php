@@ -63,9 +63,16 @@ class LandlordAdmin extends Authenticatable implements JWTSubject
         return $this->hasOne(NivelAutorizacion::class, 'usuario_id');
     }
 
+    /** Misma regla que Cliente::scopeVisiblesPara (05-oct-2026: tipos de cliente). */
     public function puedeVerCliente(Cliente $cliente): bool
     {
-        return ! $this->tieneCartera() || $this->cartera()->whereKey($cliente->id)->exists();
+        if ($cliente->tipo === Cliente::TIPO_PRUEBA && ! $this->esSuperadmin()) {
+            return false;
+        }
+
+        return ! $this->tieneCartera()
+            || in_array($cliente->tipo, Cliente::TIPOS_COMPARTIDOS, true)
+            || $this->cartera()->whereKey($cliente->id)->exists();
     }
 
     public function getJWTIdentifier(): mixed

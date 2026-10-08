@@ -12,19 +12,19 @@ return [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
-            'prorrogas.solicitar', 'prorrogas.autorizar',
+            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar',
             'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver',
         ]],
         'gerente' => ['nombre' => 'Gerente', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
-            'prorrogas.solicitar', 'prorrogas.autorizar',
+            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar',
             'operadores.gestionar',
         ]],
         'vendedor' => ['nombre' => 'Vendedor', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
-            'prorrogas.solicitar',
+            'prorrogas.solicitar', 'planes.solicitar',
         ]],
         'soporte' => ['nombre' => 'Soporte', 'permisos' => [
             'clientes.ver', 'suscripciones.restablecer_admin',
