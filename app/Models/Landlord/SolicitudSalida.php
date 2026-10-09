@@ -17,6 +17,10 @@ class SolicitudSalida extends Model
 
     public const TIPOS = [self::RETIRO, self::REACTIVACION, self::FINIQUITO];
 
+    /** 09-oct-2026: archivar UNA empresa (v2.3 caso A). No cambia el estatus de la suscripción. */
+    public const ARCHIVO = 'archivo';
+    public const TIPOS_SOLICITABLES = [...self::TIPOS, self::ARCHIVO];
+
     public const SOLICITADA = 'solicitada';
     public const PROGRAMADA = 'programada';   // autorizada; se aplica en el corte de la fecha efectiva
     public const APLICADA = 'aplicada';
@@ -33,7 +37,7 @@ class SolicitudSalida extends Model
     protected $table = 'solicitudes_salida';
 
     protected $fillable = [
-        'suscripcion_id', 'tipo', 'estatus_anterior', 'motivo', 'conformidad_tipo', 'conformidad_referencia', 'estado', 'fecha_efectiva',
+        'suscripcion_id', 'tipo', 'empresa_id', 'empresa_nombre', 'empresa_rfc', 'estatus_anterior', 'motivo', 'conformidad_tipo', 'conformidad_referencia', 'estado', 'fecha_efectiva',
         'solicitada_por', 'resuelta_por', 'nivel_autorizacion', 'comentario_resolucion', 'resuelta_en', 'aplicada_en', 'error',
     ];
 

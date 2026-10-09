@@ -55,7 +55,8 @@ class SalidasController extends Controller
     public function solicitar(Request $request, Suscripcion $suscripcion): JsonResponse
     {
         $datos = $request->validate([
-            'tipo' => ['required', 'in:'.implode(',', SolicitudSalida::TIPOS)],
+            'tipo' => ['required', 'in:'.implode(',', SolicitudSalida::TIPOS_SOLICITABLES)],
+            'empresa_id' => ['nullable', 'integer'],
             'motivo' => ['required', 'string', 'max:1000'],
             'motivo_salida' => ['nullable', 'string', 'max:30'],
             'conformidad_tipo' => ['nullable', 'in:correo,documento'],

@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\AvisoCambioPlanMail;
 use App\Mail\AvisoVencimientoMail;
 use App\Mail\PlanAjustadoMail;
+use App\Mail\RespaldoListoMail;
 use App\Mail\CartaFiniquitoMail;
 use App\Mail\ClaveRespaldoMail;
 use App\Mail\MensajeKernia;
@@ -30,6 +31,7 @@ class CorreosController extends Controller
         AvisoCambioPlanMail::class,
         PlanAjustadoMail::class,
         CartaFiniquitoMail::class,
+        RespaldoListoMail::class,
         ClaveRespaldoMail::class,
         RecordatorioDescargaMail::class,
         NuevaPasswordOperadorMail::class,

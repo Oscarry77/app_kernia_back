@@ -35,3 +35,7 @@ Schedule::command('landlord:avisos-vencimiento')->dailyAt('08:00')->timezone(con
 // Exportación v2.3 del finiquito (09-oct-2026): avance cada 5 minutos; recordatorios y vencimiento del plazo a las 08:10.
 Schedule::command('landlord:orquestar-exportaciones')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('landlord:orquestar-exportaciones --diarias')->dailyAt('08:10')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();
+
+// Respaldos de base del patrón A (09-oct-2026): borra los vencidos.
+Schedule::call(fn () => app(\App\Services\Landlord\RespaldoBaseService::class)->eliminarVencidos())
+    ->name('respaldos-base-vencidos')->dailyAt('00:20')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();

@@ -139,6 +139,8 @@ class PanelPresenter
             'salida' => ($salida = SolicitudSalida::with('solicitante:id,nombre')->where('suscripcion_id', $s->id)
                 ->whereIn('estado', SolicitudSalida::ABIERTAS)->latest('id')->first()) ? $this->solicitudSalida($salida) : null,
             'salidas_posibles' => app(SalidaService::class)->opciones($s),
+            // 09-oct-2026: copia a petición (una por trimestre incluida).
+            'copia' => app(ExportacionService::class)->estadoCopia($s),
             // 09-oct-2026: exportación v2.3 más reciente (solo metadatos; nunca la contraseña).
             'exportacion' => ($e = \App\Models\Landlord\Exportacion::where('suscripcion_id', $s->id)->latest('id')->first()) ? [
                 'id' => $e->id, 'motivo' => $e->motivo, 'estado' => $e->estado, 'intento' => $e->intento,
@@ -148,6 +150,8 @@ class PanelPresenter
                 'carta_enviada_en' => $e->carta_enviada_en?->toIso8601String(), 'clave_enviada_en' => $e->clave_enviada_en?->toIso8601String(),
                 'recordatorios' => $e->recordatorios ?? [], 'error' => $e->error,
                 'eliminacion' => $e->eliminacion, 'eliminada_en' => $e->eliminada_en?->toIso8601String(),
+                'archivo' => $e->archivo, 'archivada_en' => $e->archivada_en?->toIso8601String(),
+                'empresa' => $e->solicitud_salida_id ? \App\Models\Landlord\SolicitudSalida::whereKey($e->solicitud_salida_id)->value('empresa_nombre') : null,
                 // 09-oct-2026: solicitudes de soporte abiertas (reenvío de contraseña, entrega a soporte).
                 'solicitudes' => \App\Models\Landlord\SolicitudRespaldo::with('solicitante:id,nombre')->where('exportacion_id', $e->id)
                     ->whereIn('estado', ['solicitada', 'autorizada'])->orderBy('id')->get()
@@ -165,6 +169,9 @@ class PanelPresenter
             'id' => $sol->id,
             'suscripcion_id' => $sol->suscripcion_id,
             'tipo' => $sol->tipo,
+            'empresa_id' => $sol->empresa_id,
+            'empresa_nombre' => $sol->empresa_nombre,
+            'empresa_rfc' => $sol->empresa_rfc,
             'estatus_anterior' => $sol->estatus_anterior,
             'motivo' => $sol->motivo,
             'conformidad_tipo' => $sol->conformidad_tipo,

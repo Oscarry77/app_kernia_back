@@ -103,6 +103,18 @@ class RespaldosController extends Controller
         return response()->json(['data' => $this->forma($sol)]);
     }
 
+    /** (09-oct-2026) Copia a petición del cliente: una por trimestre incluida. */
+    public function pedirCopia(Request $request, \App\Models\Landlord\Suscripcion $suscripcion): JsonResponse
+    {
+        try {
+            $exp = app(\App\Services\Landlord\ExportacionService::class)->iniciarCopia($suscripcion, $request->user('api'));
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['data' => ['exportacion_id' => $exp->id, 'estado' => $exp->estado, 'disponible_hasta' => $exp->disponible_hasta->toDateString()]], 201);
+    }
+
     /** El 7z cifrado, en flujo desde la app: solo quien lo pidió, una vez, dentro de 24 h. Kernia no lo guarda. */
     public function archivo(Request $request, SolicitudRespaldo $respaldo): StreamedResponse|JsonResponse
     {

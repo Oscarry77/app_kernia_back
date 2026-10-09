@@ -21,6 +21,11 @@ return [
     // administrador del cliente tiene para descargar su respaldo.
     'finiquito_descarga_dias' => 15,
 
+    // Respaldo de la base de un cliente del patrón A antes de `ajuste-plan` (09-oct-2026):
+    // binario de mysqldump y días que se conserva el respaldo cifrado.
+    'mysqldump' => env('KERNIA_MYSQLDUMP', 'mysqldump'),
+    'respaldo_base_dias' => 90,
+
     // Retención del respaldo tras el finiquito o el archivo (decisión del dueño del 05-oct): después se elimina.
     'retencion_dias' => 90,
 

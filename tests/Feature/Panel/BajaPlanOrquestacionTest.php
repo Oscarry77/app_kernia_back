@@ -296,4 +296,37 @@ class BajaPlanOrquestacionTest extends TestCase
         $this->assertSame('aplicada', $sol->fresh()->estado);
         Http::assertNothingSent();
     }
+
+    /** (09-oct-2026) Patrón A: Kernia respalda la base ya en mantenimiento y manda `respaldo_id` en `ajuste-plan`. */
+    public function test_patron_a_kernia_respalda_antes_del_ajuste_y_manda_el_respaldo(): void
+    {
+        $this->hrm->update(['modo_datos' => Producto::MODO_DEDICADA]);
+        $this->s->update(['db_database' => 'hrm_acme']);
+        $respaldos = new class extends \App\Services\Landlord\RespaldoBaseService {
+            public int $llamadas = 0;
+
+            public function __construct() {}
+
+            public function crear(Suscripcion $s, string $motivo, ?int $solicitudPlanId = null): \App\Models\Landlord\RespaldoBase
+            {
+                $this->llamadas++;
+
+                return \App\Models\Landlord\RespaldoBase::create(['suscripcion_id' => $s->id, 'solicitud_plan_id' => $solicitudPlanId, 'motivo' => $motivo,
+                    'base' => $s->db_database, 'estado' => 'listo', 'expira_en' => now()->addDays(90)->toDateString()]);
+            }
+        };
+        $this->app->instance(\App\Services\Landlord\RespaldoBaseService::class, $respaldos);
+
+        $sol = $this->bajaAutorizada('basico', [11]);
+        Carbon::setTestNow(now()->addDay());
+        Artisan::call('landlord:procesar-vencimientos');
+        $this->aMinuto(5); // mantenimiento
+        $this->aMinuto(1); // respaldo + ajuste-plan
+        $this->aMinuto(1); // ready
+
+        $respaldo = \App\Models\Landlord\RespaldoBase::sole();
+        $this->assertSame(1, $respaldos->llamadas);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/ajuste-plan') && $r['respaldo_id'] === $respaldo->id);
+        $this->assertSame(['aplicada', $respaldo->id], [$sol->fresh()->estado, $sol->fresh()->respaldo_id]);
+    }
 }

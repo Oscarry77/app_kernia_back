@@ -31,10 +31,14 @@ class EmpresasV22ProductoCommand extends Command
 
         $valor = ! $this->option('apagar');
         if ($valor && $producto->esDedicada()) {
-            // Patrón A: Kernia debe respaldar antes de ajuste-plan (v2.2 §3.3, Revisión 3); aún no construido.
-            $this->error("{$producto->nombre} usa base dedicada (patrón A): el respaldo previo de Kernia aún no está construido.");
+            // Patrón A: Kernia respalda antes de ajuste-plan (09-oct-2026); exige mysqldump y las credenciales del aprovisionador.
+            $mysqldump = (string) config('kernia.mysqldump');
+            $existe = is_file($mysqldump) || (bool) trim((string) @shell_exec((PHP_OS_FAMILY === 'Windows' ? 'where ' : 'command -v ').escapeshellarg($mysqldump)));
+            if (! $existe || ! env('TENANT_PROVISION_DB_ADMIN_USERNAME')) {
+                $this->error("{$producto->nombre} usa base dedicada (patrón A): configura KERNIA_MYSQLDUMP y las credenciales del aprovisionador para que Kernia respalde antes del ajuste.");
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
         }
 
         $antes = ['empresas_v22' => (bool) $producto->empresas_v22];

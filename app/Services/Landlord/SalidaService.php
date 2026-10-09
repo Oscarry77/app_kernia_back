@@ -40,6 +40,7 @@ class SalidaService
         SolicitudSalida::RETIRO => [Suscripcion::ESTATUS_ACTIVO, Suscripcion::ESTATUS_SUSPENDIDO],
         SolicitudSalida::REACTIVACION => [Suscripcion::ESTATUS_RETIRADO],
         SolicitudSalida::FINIQUITO => [Suscripcion::ESTATUS_ACTIVO, Suscripcion::ESTATUS_SUSPENDIDO, Suscripcion::ESTATUS_RETIRADO],
+        SolicitudSalida::ARCHIVO => [Suscripcion::ESTATUS_ACTIVO],
     ];
 
     public function __construct(private readonly SuscripcionEstatusService $estatus)
@@ -77,9 +78,11 @@ class SalidaService
 
     public function solicitar(Suscripcion $s, string $tipo, array $datos, LandlordAdmin $solicitante): SolicitudSalida
     {
-        if (! in_array($tipo, SolicitudSalida::TIPOS, true)) {
+        if (! in_array($tipo, SolicitudSalida::TIPOS_SOLICITABLES, true)) {
             throw new RuntimeException('Tipo de salida desconocido.');
         }
+        // 09-oct-2026: archivar una empresa (v2.3 caso A).
+        $empresa = $tipo === SolicitudSalida::ARCHIVO ? $this->empresaArchivable($s, $datos) : [];
         if (! in_array($s->estatus, self::DESDE[$tipo], true)) {
             throw new RuntimeException(match ($tipo) {
                 SolicitudSalida::REACTIVACION => 'Solo se reactiva una app retirada.',
@@ -112,6 +115,19 @@ class SalidaService
             }
             $conformidad = ['conformidad_tipo' => $tipoConformidad, 'conformidad_referencia' => mb_substr($referencia, 0, 500)];
         }
+        if ($tipo === SolicitudSalida::ARCHIVO) {
+            // Decisión del 05-oct: archivar una empresa también exige la conformidad del cliente.
+            $tipoConformidad = $datos['conformidad_tipo'] ?? null;
+            $referencia = trim((string) ($datos['conformidad_referencia'] ?? ''));
+            if (! in_array($tipoConformidad, [SolicitudSalida::CONFORMIDAD_CORREO, SolicitudSalida::CONFORMIDAD_DOCUMENTO], true) || $referencia === '') {
+                throw new RuntimeException('Archivar una empresa exige la conformidad del cliente: indica si es un correo o un documento firmado y su referencia.');
+            }
+            $clave = $empresa['empresa_rfc'] ?: $empresa['empresa_nombre'];
+            if (mb_strtolower(trim((string) ($datos['confirmacion_slug'] ?? ''))) !== mb_strtolower($clave)) {
+                throw new RuntimeException("Para confirmar escribe exactamente el RFC de la empresa ({$clave}).");
+            }
+            $conformidad = ['conformidad_tipo' => $tipoConformidad, 'conformidad_referencia' => mb_substr($referencia, 0, 500)];
+        }
 
         // 08-oct-2026: formulario de salida obligatorio para el asesor (retiro y finiquito).
         $formularios = app(FormularioSalidaService::class);
@@ -119,10 +135,11 @@ class SalidaService
             $formularios->validarMotivoAsesor($datos['motivo_salida'] ?? null, $motivo);
         }
 
-        return DB::transaction(function () use ($s, $tipo, $motivo, $conformidad, $solicitante, $datos, $formularios) {
+        return DB::transaction(function () use ($s, $tipo, $motivo, $conformidad, $solicitante, $datos, $formularios, $empresa) {
             $sol = SolicitudSalida::create([
                 'suscripcion_id' => $s->id,
                 'tipo' => $tipo,
+                ...$empresa,
                 'estatus_anterior' => $s->estatus,
                 'motivo' => $motivo,
                 ...$conformidad,
@@ -288,6 +305,19 @@ class SalidaService
             return $fallar("{$s->producto->nombre} todavía no exporta ni tiene la sección Descargas.");
         }
 
+        // 09-oct-2026: archivar una empresa no cambia el estatus: arranca la exportación de esa empresa.
+        if ($sol->tipo === SolicitudSalida::ARCHIVO) {
+            if (! $s->producto->exportacion_v23 || ! $s->producto->empresas_v22) {
+                return $fallar("{$s->producto->nombre} todavía no archiva empresas (estándar v2.2 y v2.3).");
+            }
+            $exp = app(ExportacionService::class)->iniciarArchivo($s, $sol);
+            $sol->update(['estado' => SolicitudSalida::APLICADA, 'aplicada_en' => now()]);
+            Auditoria::registrar('empresa.archivo_iniciado', null, $s, null, ['solicitud_salida_id' => $sol->id, 'empresa_id' => $sol->empresa_id,
+                'empresa' => $sol->empresa_nombre, 'exportacion_id' => $exp->id]);
+
+            return $sol->fresh();
+        }
+
         $antes = ['estatus' => $s->estatus];
         [$estatus, $motivoApp] = match ($sol->tipo) {
             SolicitudSalida::RETIRO => [Suscripcion::ESTATUS_RETIRADO, 'Servicio dado de baja'],
@@ -328,6 +358,27 @@ class SalidaService
         ]);
 
         return $sol->fresh();
+    }
+
+    /**
+     * La empresa a archivar, según la app: debe existir y no estar archivada; una
+     * por solicitud abierta. @return array{empresa_id: int, empresa_nombre: string, empresa_rfc: ?string}
+     */
+    private function empresaArchivable(Suscripcion $s, array $datos): array
+    {
+        if (! $s->producto->empresas_v22 || ! $s->producto->exportacion_v23) {
+            throw new RuntimeException("{$s->producto->nombre} todavía no archiva empresas (estándar v2.2 y v2.3).");
+        }
+        $id = (int) ($datos['empresa_id'] ?? 0);
+        $e = collect(app(BajaPlanService::class)->empresas($s)['data'] ?? [])->firstWhere('id', $id);
+        if (! $e) {
+            throw new RuntimeException('La empresa no pertenece al cliente.');
+        }
+        if ($e['estado'] === 'archivada') {
+            throw new RuntimeException('Esa empresa ya está archivada.');
+        }
+
+        return ['empresa_id' => $id, 'empresa_nombre' => $e['nombre'], 'empresa_rfc' => $e['rfc'] ?? null];
     }
 
     /** Nivel en el escalafón; el superadmin siempre puede (nivel 99). */

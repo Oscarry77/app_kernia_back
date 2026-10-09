@@ -192,6 +192,25 @@ class ProductoAppClient
         return $this->asegurarJson($respuesta, $producto, 'exportaciones');
     }
 
+    /** POST …/empresas/{id}/archivar (v2.3 §4.5). @return array{status: int, body: array} 202 o 409 (aún no se puede) */
+    public function archivarEmpresa(Suscripcion $suscripcion, int $empresaId, array $cuerpo): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto, ['Idempotency-Key' => "archivar-{$cuerpo['solicitud_id']}"])->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/empresas/{$empresaId}/archivar"), $cuerpo);
+
+        return ['status' => $respuesta->status(), 'body' => $respuesta->json() ?? []];
+    }
+
+    /** GET …/empresas/{id}/archivar → {status: processing|ready|failed, error} */
+    public function estadoArchivarEmpresa(Suscripcion $suscripcion, int $empresaId): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(20)->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/empresas/{$empresaId}/archivar"));
+
+        return $this->asegurarJson($respuesta, $producto, 'empresas/archivar');
+    }
+
     /** DELETE …/exportaciones/{id} (v2.3 §4.4). 204, o 404 si ya no existe: ambos cuentan como borrado. */
     public function eliminarExportacion(Suscripcion $suscripcion, string $exportacionId): void
     {

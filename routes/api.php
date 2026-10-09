@@ -129,6 +129,7 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::post('respaldos/{respaldo}/cancelar', [RespaldosController::class, 'cancelar']);
         Route::post('respaldos/{respaldo}/reintentar', [RespaldosController::class, 'reintentar']);
         Route::get('respaldos/{respaldo}/archivo', [RespaldosController::class, 'archivo']);
+        Route::post('suscripciones/{suscripcion}/copias', [RespaldosController::class, 'pedirCopia']);
     });
     Route::get('motivos-salida', [FormularioSalidaController::class, 'index'])->middleware('permiso:salidas.motivos');
 

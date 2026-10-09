@@ -25,8 +25,9 @@ use Throwable;
  *    Si la app falla, la suscripción regresa a `activo` con su plan anterior.
  *  - Desbloquear: Kernia audita la licencia ANTES de llamar a la app
  *    (activas + inactivas + las que se piden ≤ max_empresas); la app valida de nuevo.
- *  - Solo con apps que ya cumplen v2.2 (`productos.empresas_v22`) y en el
- *    patrón B (la app respalda). El patrón A (Kernia respalda) llega después.
+ *  - Solo con apps que ya cumplen v2.2 (`productos.empresas_v22`). Quién
+ *    respalda: en el patrón B, la app; en el patrón A, Kernia (RespaldoBaseService),
+ *    ya en mantenimiento y antes de pedir el ajuste (09-oct-2026).
  */
 class BajaPlanService
 {
@@ -124,10 +125,6 @@ class BajaPlanService
         $s = $sol->suscripcion;
         if ($s->estatus !== Suscripcion::ESTATUS_ACTIVO) {
             return $this->fallar($sol, "La suscripción está '{$s->estatus}'; la baja requiere que esté activa.");
-        }
-        if ($s->producto->esDedicada()) {
-            // Patrón A: el respaldo lo hace Kernia (v2.2 §3.3, Revisión 3). Aún no construido.
-            return $this->fallar($sol, 'El respaldo previo de Kernia (patrón A) aún no está disponible para esta app.');
         }
 
         $sol->update(['estado' => SolicitudPlan::EN_EJECUCION, 'fase' => SolicitudPlan::FASE_AVISO, 'fase_desde' => now(), 'error' => null]);
@@ -247,12 +244,24 @@ class BajaPlanService
             return $this->demora($sol);
         }
 
+        // 09-oct-2026: patrón A (Kernia creó la base): Kernia respalda ANTES de pedir el ajuste y manda
+        // `respaldo_id` (v2.2 §3.3, Revisión 3). Ya en mantenimiento, nadie escribe mientras se respalda.
+        if ($s->producto->esDedicada() && ! $sol->respaldo_id) {
+            try {
+                $respaldo = app(RespaldoBaseService::class)->crear($s, 'ajuste_plan', $sol->id);
+            } catch (RuntimeException $e) {
+                return $this->revertir($sol, $e->getMessage());
+            }
+            $sol->update(['respaldo_id' => $respaldo->id]);
+        }
+
         $lista = $sol->empresas_conservar;
         $r = $this->app->ajustePlan($s, [
             'solicitud_id' => $sol->id,
             'max_empresas' => $this->maxEmpresasCon($s, $sol->plan_nuevo),
             'empresas_conservar' => $lista ?? [],
             'motivo' => $lista === null ? 'sin_seleccion' : 'seleccion',
+            ...($s->producto->esDedicada() ? ['respaldo_id' => $sol->respaldo_id] : []),
         ], "solicitud-plan-{$sol->id}");
 
         if (in_array($r['status'], [200, 202], true)) {
@@ -293,7 +302,7 @@ class BajaPlanService
         $sol->update([
             'estado' => $errorPlan ? SolicitudPlan::FALLIDA : SolicitudPlan::APLICADA, 'error' => $errorPlan,
             'fase' => null, 'fase_desde' => null, 'aplicada_en' => now(),
-            'respaldo_id' => $estado['respaldo_id'] ?? null, 'empresas_bloqueadas' => $estado['empresas_bloqueadas'] ?? [],
+            'respaldo_id' => $sol->respaldo_id ?? ($estado['respaldo_id'] ?? null), 'empresas_bloqueadas' => $estado['empresas_bloqueadas'] ?? [],
         ]);
         $this->estatus->cambiarEstatus($s->fresh(), Suscripcion::ESTATUS_ACTIVO, 'Ajuste de plan terminado');
 
