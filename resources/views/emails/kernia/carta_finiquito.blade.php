@@ -8,8 +8,12 @@ Tal como lo acordamos, preparamos el respaldo de su información para que la con
 
 <p style="margin:0 0 8px;"><b>Qué contiene</b></p>
 <p style="margin:0 0 8px;">
+@if (count($empresas))
   {{ $alcance === 'empresa' ? 'La información de:' : 'Toda la información de su cuenta, incluidas las empresas:' }}
-  @foreach ($empresas as $e){{ $e['nombre'] }} ({{ $e['rfc'] }})@if (! $loop->last), @endif @endforeach.
+  {{ collect($empresas)->map(fn ($e) => $e['rfc'] ? "{$e['nombre']} ({$e['rfc']})" : $e['nombre'])->implode(', ') }}.
+@else
+  Toda la información de su cuenta.
+@endif
 </p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse;font-size:14px;">
   @foreach ($contenido as $c)

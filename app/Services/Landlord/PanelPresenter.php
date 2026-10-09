@@ -139,6 +139,15 @@ class PanelPresenter
             'salida' => ($salida = SolicitudSalida::with('solicitante:id,nombre')->where('suscripcion_id', $s->id)
                 ->whereIn('estado', SolicitudSalida::ABIERTAS)->latest('id')->first()) ? $this->solicitudSalida($salida) : null,
             'salidas_posibles' => app(SalidaService::class)->opciones($s),
+            // 09-oct-2026: exportación v2.3 más reciente (solo metadatos; nunca la contraseña).
+            'exportacion' => ($e = \App\Models\Landlord\Exportacion::where('suscripcion_id', $s->id)->latest('id')->first()) ? [
+                'id' => $e->id, 'motivo' => $e->motivo, 'estado' => $e->estado, 'intento' => $e->intento,
+                'tamano_bytes' => $e->tamano_bytes, 'sha256' => $e->sha256,
+                'disponible_hasta' => $e->disponible_hasta?->toDateString(), 'descargada_en' => $e->descargada_en?->toIso8601String(),
+                'retencion_hasta' => $e->retencion_hasta?->toDateString(),
+                'carta_enviada_en' => $e->carta_enviada_en?->toIso8601String(), 'clave_enviada_en' => $e->clave_enviada_en?->toIso8601String(),
+                'recordatorios' => $e->recordatorios ?? [], 'error' => $e->error,
+            ] : null,
         ];
     }
 

@@ -21,6 +21,9 @@ return [
     // administrador del cliente tiene para descargar su respaldo.
     'finiquito_descarga_dias' => 15,
 
+    // Retención del respaldo tras el finiquito o el archivo (decisión del dueño del 05-oct): después se elimina.
+    'retencion_dias' => 90,
+
     // Avisos de vencimiento por correo (09-oct-2026, fase 4; criterio del
     // orquestador, corregible): días antes de la fecha de próximo pago en los
     // que se avisa, y desde cuántos días va copia a Dirección.

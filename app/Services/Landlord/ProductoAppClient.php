@@ -164,6 +164,34 @@ class ProductoAppClient
         }
     }
 
+    // ── Estándar v2.3 (09-oct-2026) ──
+
+    /**
+     * POST …/clientes/{slug}/exportaciones. La `clave_respaldo` viaja solo en
+     * este cuerpo y nunca se registra. Devuelve el código y el cuerpo: 202 y
+     * 200 se aceptan (v2.3 §4.2, idempotencia); lo demás lo decide quien llama.
+     *
+     * @return array{status: int, body: array}
+     */
+    public function exportar(Suscripcion $suscripcion, array $cuerpo, string $idempotencyKey): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto, ['Idempotency-Key' => $idempotencyKey])->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/exportaciones"), $cuerpo);
+
+        return ['status' => $respuesta->status(), 'body' => $respuesta->json() ?? []];
+    }
+
+    /** GET …/exportaciones/{id} → {status, tamano_bytes, sha256_7z, conteos, disponible_hasta, descargada_en, latido_en, error} */
+    public function estadoExportacion(Suscripcion $suscripcion, string $exportacionId): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(20)
+            ->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/exportaciones/".rawurlencode($exportacionId)));
+
+        return $this->asegurarJson($respuesta, $producto, 'exportaciones');
+    }
+
     /** Nunca lanza -- degrada a {ok:false} (guía §4.2). */
     public function metricas(Suscripcion $suscripcion): array
     {

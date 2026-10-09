@@ -30,3 +30,8 @@ Schedule::command('landlord:conciliar-licencias')->dailyAt('01:00')->timezone(co
 
 // Avisos de vencimiento por correo (09-oct-2026, fase 4): a las 08:00 de México, en horario de oficina.
 Schedule::command('landlord:avisos-vencimiento')->dailyAt('08:00')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();
+
+
+// Exportación v2.3 del finiquito (09-oct-2026): avance cada 5 minutos; recordatorios y vencimiento del plazo a las 08:10.
+Schedule::command('landlord:orquestar-exportaciones')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('landlord:orquestar-exportaciones --diarias')->dailyAt('08:10')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();

@@ -312,6 +312,16 @@ class SalidaService
 
         $sol->update(['estado' => SolicitudSalida::APLICADA, 'aplicada_en' => now()]);
         $s = $s->fresh();
+
+        // 09-oct-2026: el finiquito arranca la exportación v2.3 (la contraseña nace aquí, en la bóveda).
+        if ($sol->tipo === SolicitudSalida::FINIQUITO) {
+            try {
+                app(ExportacionService::class)->iniciarFiniquito($s, $sol);
+            } catch (\Throwable $e) {
+                // La exportación queda pendiente y `landlord:orquestar-exportaciones` la reintenta.
+                \Illuminate\Support\Facades\Log::warning('exportacion.no_iniciada', ['solicitud_salida_id' => $sol->id, 'error' => $e->getMessage()]);
+            }
+        }
         Auditoria::registrar("suscripcion.{$sol->tipo}", null, $s, $antes, [
             'solicitud_salida_id' => $sol->id, 'estatus' => $s->estatus, 'autorizada_por' => $sol->resuelta_por,
             'descarga_hasta' => $s->descarga_hasta?->toDateString(), 'app_confirmo' => $confirmo,
