@@ -25,6 +25,7 @@ class Producto extends Model
         'permite_ws_cntpaq',
         'estatus_salida',
         'empresas_v22',
+        'exportacion_v23',
     ];
 
     protected $hidden = [
@@ -38,6 +39,8 @@ class Producto extends Model
         'estatus_salida' => 'boolean',
         // 09-oct-2026: la app cumple v2.2 (lista de empresas, en_mantenimiento, ajuste-plan, desbloquear).
         'empresas_v22' => 'boolean',
+        // 09-oct-2026: la app exporta y tiene Descargas (v2.3); sin esto no se finiquita.
+        'exportacion_v23' => 'boolean',
     ];
 
     public function modulos(): HasMany

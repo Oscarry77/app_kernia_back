@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'permiso' => \App\Http\Middleware\VerificarPermiso::class,
             'cartera' => \App\Http\Middleware\VerificarCartera::class,
         ]);
+        // (09-oct-2026) Kernia es solo API: sin sesión no hay a dónde redirigir. Antes buscaba la
+        // ruta `login`, que no existe, y respondía 500; ahora es 401 en JSON aunque falte `Accept`.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Errores de rutas internas/API siempre en JSON, incluido el 404 de

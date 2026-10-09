@@ -16,7 +16,8 @@ class EstatusSalidaProductoCommand extends Command
 {
     protected $signature = 'landlord:estatus-salida
         {producto_slug : comercializa|hrm|svi}
-        {--apagar : la app deja de reconocerlos (revierte)}';
+        {--apagar : la app deja de reconocerlos (revierte)}
+        {--finiquito : además, la app ya exporta y tiene Descargas (v2.3): habilita finiquitar}';
 
     protected $description = 'Habilita (o deshabilita) los estados de salida v2.3 para una app.';
 
@@ -30,13 +31,20 @@ class EstatusSalidaProductoCommand extends Command
         }
 
         $valor = ! $this->option('apagar');
-        $antes = ['estatus_salida' => (bool) $producto->estatus_salida];
-        $producto->update(['estatus_salida' => $valor]);
-        Auditoria::registrar('producto.estatus_salida', null, null, $antes, ['producto' => $producto->slug, 'estatus_salida' => $valor]);
+        // 09-oct-2026: el finiquito se enciende aparte (--finiquito), cuando la app ya tiene v2.3.
+        $cambios = $valor
+            ? ['estatus_salida' => true, ...($this->option('finiquito') ? ['exportacion_v23' => true] : [])]
+            : ['estatus_salida' => false, 'exportacion_v23' => false];
+        $antes = ['estatus_salida' => (bool) $producto->estatus_salida, 'exportacion_v23' => (bool) $producto->exportacion_v23];
+        $producto->update($cambios);
+        Auditoria::registrar('producto.estatus_salida', null, null, $antes, ['producto' => $producto->slug, ...$cambios]);
 
-        $this->info($valor
-            ? "{$producto->nombre}: ya se puede retirar y finiquitar desde el panel."
-            : "{$producto->nombre}: retirar y finiquitar quedan deshabilitados.");
+        $producto->refresh();
+        $this->info(match (true) {
+            ! $valor => "{$producto->nombre}: retirar y finiquitar quedan deshabilitados.",
+            $producto->exportacion_v23 => "{$producto->nombre}: ya se puede retirar, reactivar y finiquitar desde el panel.",
+            default => "{$producto->nombre}: ya se puede retirar y reactivar. Finiquitar, cuando tenga v2.3 (--finiquito).",
+        });
 
         return self::SUCCESS;
     }

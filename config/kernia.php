@@ -21,6 +21,12 @@ return [
     // administrador del cliente tiene para descargar su respaldo.
     'finiquito_descarga_dias' => 15,
 
+    // Avisos de vencimiento por correo (09-oct-2026, fase 4; criterio del
+    // orquestador, corregible): días antes de la fecha de próximo pago en los
+    // que se avisa, y desde cuántos días va copia a Dirección.
+    'avisos_vencimiento_dias' => [30, 15, 7, 3, 1, 0],
+    'avisos_vencimiento_direccion_desde' => 3,
+
     // Formulario de salida (08-oct-2026, aprobado por el dueño). El asesor
     // elige uno al solicitar un retiro, un finiquito o una baja de plan; el
     // cliente, desde su enlace. "otro" exige detalle.

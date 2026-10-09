@@ -10,6 +10,7 @@ use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\CorreosController;
 use App\Http\Controllers\Panel\EmpresasClienteController;
 use App\Http\Controllers\Panel\FormularioSalidaController;
+use App\Http\Controllers\Panel\MatrizController;
 use App\Http\Controllers\Panel\SalidasController;
 use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Panel\AuditoriaController;
@@ -44,6 +45,9 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
     Route::post('auth/logout', [LandlordAuthController::class, 'logout']);
     Route::post('auth/refresh', [LandlordAuthController::class, 'refresh']);
     Route::get('auth/me', [LandlordAuthController::class, 'me']);
+    // (09-oct-2026) Menú lateral (lo que ve el operador) y matriz de roles (consulta), de una sola definición.
+    Route::get('acl/menu', [MatrizController::class, 'menu']);
+    Route::get('acl/matriz', [MatrizController::class, 'matriz'])->middleware('permiso:operadores.gestionar');
 
     // Panel v2 (02-oct-2026). Fase 3: cada ruta exige un permiso del rol
     // (config/kernia_acl.php) y los controladores aplican la cartera.

@@ -27,3 +27,6 @@ Schedule::command('landlord:orquestar-bajas')->everyMinute()->withoutOverlapping
 
 // Conciliación diaria de licencias (09-oct-2026): lo que reporta cada app contra lo contratado.
 Schedule::command('landlord:conciliar-licencias')->dailyAt('01:00')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();
+
+// Avisos de vencimiento por correo (09-oct-2026, fase 4): a las 08:00 de México, en horario de oficina.
+Schedule::command('landlord:avisos-vencimiento')->dailyAt('08:00')->timezone(config('kernia.zona_horaria'))->withoutOverlapping();

@@ -31,6 +31,7 @@ class PanelPresenter
             'permite_ws_cntpaq' => (bool) $p->permite_ws_cntpaq,
             'estatus_salida' => (bool) $p->estatus_salida,
             'empresas_v22' => (bool) $p->empresas_v22,
+            'exportacion_v23' => (bool) $p->exportacion_v23,
             'modo_datos' => $p->modo_datos,
             'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre', 'requiere'])->toArray(),
             'planes' => $p->planes()->when(! $completo, fn ($q) => $q->where('activo', true))->orderBy('orden')->get()
@@ -91,6 +92,8 @@ class PanelPresenter
             'suspension_motivo' => $s->suspension_motivo,
             'activa_hasta' => $s->activa_hasta?->toDateString(),
             'aviso' => $vigencias->aviso($s),
+            // 09-oct-2026: último aviso de vencimiento entregado por correo en el ciclo actual.
+            'ultimo_aviso_correo' => app(\App\Services\Correo\AvisosVencimientoService::class)->ultimo($s),
         ];
     }
 

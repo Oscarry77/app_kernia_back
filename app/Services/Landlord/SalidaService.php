@@ -26,7 +26,8 @@ use RuntimeException;
  *  - El finiquito exige la conformidad del cliente (referencia del correo o
  *    documento firmado) y que el solicitante escriba el slug del cliente.
  *  - Kernia no manda estos estatus a una app que aún no confirma reconocerlos
- *    (`productos.estatus_salida`); hoy, ninguna.
+ *    (`productos.estatus_salida`). El finiquito exige además que la app ya
+ *    exporte y tenga Descargas (`productos.exportacion_v23`, 09-oct-2026).
  *  - Una sola solicitud de salida abierta por suscripción.
  *
  * Fuera de esta pieza (pendiente #4 del handoff del 07-oct): la exportación
@@ -62,6 +63,8 @@ class SalidaService
                 $abierta => 'Ya hay una solicitud de salida abierta para esta app.',
                 $tipo !== SolicitudSalida::REACTIVACION && ! $s->producto->estatus_salida
                     => "{$s->producto->nombre} todavía no reconoce los estados de salida (estándar v2.3 §4.1).",
+                $tipo === SolicitudSalida::FINIQUITO && ! $s->producto->exportacion_v23
+                    => "{$s->producto->nombre} todavía no exporta ni tiene la sección Descargas (estándar v2.3).",
                 default => '',
             };
             if ($razon !== null) {
@@ -85,6 +88,9 @@ class SalidaService
         }
         if ($tipo !== SolicitudSalida::REACTIVACION && ! $s->producto->estatus_salida) {
             throw new RuntimeException("{$s->producto->nombre} todavía no reconoce los estados de salida (estándar v2.3 §4.1); Kernia no puede enviárselos.");
+        }
+        if ($tipo === SolicitudSalida::FINIQUITO && ! $s->producto->exportacion_v23) {
+            throw new RuntimeException("{$s->producto->nombre} todavía no exporta ni tiene la sección Descargas (estándar v2.3); el cliente no podría descargar su respaldo.");
         }
         $motivo = trim((string) ($datos['motivo'] ?? ''));
         if ($motivo === '') {
@@ -277,6 +283,9 @@ class SalidaService
         }
         if ($sol->tipo !== SolicitudSalida::REACTIVACION && ! $s->producto->estatus_salida) {
             return $fallar("{$s->producto->nombre} todavía no reconoce los estados de salida.");
+        }
+        if ($sol->tipo === SolicitudSalida::FINIQUITO && ! $s->producto->exportacion_v23) {
+            return $fallar("{$s->producto->nombre} todavía no exporta ni tiene la sección Descargas.");
         }
 
         $antes = ['estatus' => $s->estatus];

@@ -45,7 +45,7 @@ class SalidaTest extends TestCase
         NivelAutorizacion::create(['nivel' => 1, 'puesto' => 'Gerencia', 'usuario_id' => $this->gerente->id, 'dias_max' => 3]);
 
         $this->svi = Producto::create(['slug' => 'svi', 'nombre' => 'Bridge SVI', 'base_url_interna' => 'http://svi.test',
-            'modo_datos' => Producto::MODO_DEDICADA, 'token_interno' => 't', 'estatus_salida' => true]);
+            'modo_datos' => Producto::MODO_DEDICADA, 'token_interno' => 't', 'estatus_salida' => true, 'exportacion_v23' => true]);
     }
 
     private function operador(string $nombre, string $rol): LandlordAdmin
@@ -220,5 +220,19 @@ class SalidaTest extends TestCase
 
         $this->withHeaders($this->como($this->vendedor))->postJson("/api/salidas/{$id}/cancelar", ['motivo' => 'Se arrepintió'])
             ->assertOk()->assertJsonPath('data.estado', 'cancelada');
+    }
+
+    public function test_sin_exportacion_v23_se_retira_pero_no_se_finiquita(): void
+    {
+        $this->svi->update(['exportacion_v23' => false]);
+        $s = $this->suscripcion();
+
+        $this->withHeaders($this->como($this->vendedor))->getJson("/api/clientes/{$s->cliente_id}")->assertOk()
+            ->assertJsonPath('data.suscripciones.0.salidas_posibles.retiro.permitido', true)
+            ->assertJsonPath('data.suscripciones.0.salidas_posibles.finiquito.permitido', false);
+        $this->solicitar($s, ['tipo' => 'finiquito', 'motivo_salida' => 'precio', 'motivo' => 'x', 'conformidad_tipo' => 'correo',
+            'conformidad_referencia' => 'x', 'confirmacion_slug' => 'acme'])->assertStatus(422)
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'Descargas'));
+        $this->solicitar($s, ['tipo' => 'retiro', 'motivo_salida' => 'precio', 'motivo' => 'x'])->assertCreated();
     }
 }
