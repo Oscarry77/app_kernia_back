@@ -19,6 +19,7 @@ class Suscripcion extends Model
     public const ESTATUS_SUSPENDIDO = 'suspendido';
     public const ESTATUS_FALLIDO = 'fallido';
     public const ESTATUS_CANCELADO = 'cancelado';
+    public const ESTATUS_EN_MANTENIMIENTO = 'en_mantenimiento'; // 09-oct-2026: baja de plan v2.2 en curso
 
     // Estados de salida (08-oct-2026, estándar v2.3 §4.1 y §7).
     public const ESTATUS_RETIRADO = 'retirado';         // baja lógica; base intacta; reversible por el escalafón

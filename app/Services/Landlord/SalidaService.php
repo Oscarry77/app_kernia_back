@@ -294,7 +294,7 @@ class SalidaService
         // Lo que quedaba abierto deja de tener sentido al salir: cambios de plan y prórrogas.
         if ($sol->tipo !== SolicitudSalida::REACTIVACION) {
             $s->update(['activa_hasta' => null]);
-            SolicitudPlan::where('suscripcion_id', $s->id)->whereIn('estado', SolicitudPlan::ABIERTAS)->update([
+            SolicitudPlan::where('suscripcion_id', $s->id)->whereIn('estado', [SolicitudPlan::SOLICITADA, SolicitudPlan::PROGRAMADA])->update([
                 'estado' => SolicitudPlan::CANCELADA, 'resuelta_en' => now(),
                 'comentario_resolucion' => $sol->tipo === SolicitudSalida::FINIQUITO ? 'Cancelada por el finiquito del servicio.' : 'Cancelada por el retiro de la app.',
             ]);

@@ -117,6 +117,53 @@ class ProductoAppClient
         }
     }
 
+    // ── Estándar v2.2 (09-oct-2026) ──
+
+    /** GET …/clientes/{slug}/empresas → {data: [{id, rfc, nombre, estado, creada_en}], cuentan_para_limite, max_empresas} */
+    public function empresas(Suscripcion $suscripcion): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(20)->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/empresas"));
+
+        return $this->asegurarJson($respuesta, $producto, 'empresas');
+    }
+
+    /**
+     * POST …/ajuste-plan. Devuelve el código HTTP y el cuerpo: 202/200 se
+     * aceptan; 409 (aún no está en mantenimiento) y 422 (regla) los decide quien llama.
+     *
+     * @return array{status: int, body: array}
+     */
+    public function ajustePlan(Suscripcion $suscripcion, array $cuerpo, string $idempotencyKey): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto, ['Idempotency-Key' => $idempotencyKey])->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/ajuste-plan"), $cuerpo);
+
+        return ['status' => $respuesta->status(), 'body' => $respuesta->json() ?? []];
+    }
+
+    /** GET …/ajuste-plan/{solicitud_id} → {status, respaldo_id, empresas_bloqueadas, error} */
+    public function estadoAjustePlan(Suscripcion $suscripcion, int $solicitudId): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(20)->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/ajuste-plan/{$solicitudId}"));
+
+        return $this->asegurarJson($respuesta, $producto, 'ajuste-plan');
+    }
+
+    /** POST …/empresas/desbloquear → 204; 422 si la app rechaza (límite o empresas no bloqueadas). */
+    public function desbloquear(Suscripcion $suscripcion, array $empresas): void
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/empresas/desbloquear"), ['empresas' => array_values($empresas)]);
+
+        if ($respuesta->failed() || $respuesta->status() >= 300) {
+            throw new RuntimeException("La app rechazó el desbloqueo ({$respuesta->status()}): ".mb_substr($respuesta->body(), 0, 300));
+        }
+    }
+
     /** Nunca lanza -- degrada a {ok:false} (guía §4.2). */
     public function metricas(Suscripcion $suscripcion): array
     {

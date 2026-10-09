@@ -7,6 +7,7 @@ use App\Models\Landlord\Cliente;
 use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\Suscripcion;
 use App\Services\Correo\AvisosCliente;
+use App\Services\Landlord\BajaPlanService;
 use App\Services\Landlord\CambioPlanService;
 use App\Services\Landlord\PanelPresenter;
 use Illuminate\Http\JsonResponse;
@@ -72,11 +73,13 @@ class CambiosPlanController extends Controller
             'aplicacion' => ['nullable', 'in:inmediata,renovacion'],
             'motivo' => ['required', 'string', 'max:1000'],
             'motivo_salida' => ['nullable', 'string', 'max:30'],
+            'empresas_conservar' => ['nullable', 'array', 'max:500'],
+            'empresas_conservar.*' => ['integer'],
         ]);
 
         try {
             $sol = $this->cambios->solicitar($suscripcion, $datos['plan'], $datos['aplicacion'] ?? SolicitudPlan::RENOVACION,
-                $datos['motivo'], $request->user('api'), $datos['motivo_salida'] ?? null);
+                $datos['motivo'], $request->user('api'), $datos['motivo_salida'] ?? null, $datos['empresas_conservar'] ?? null);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -128,6 +131,26 @@ class CambiosPlanController extends Controller
             'aplicada' => $r['aplicada'],
             'pagos' => $sol->estado === SolicitudPlan::RECHAZADA ? $this->cambios->resumenPagos($sol->suscripcion) : null,
         ]);
+    }
+
+    /** PUT /api/cambios-plan/{s}/empresas — captura o corrige la lista (null = el cliente aún no decide). */
+    public function empresas(Request $request, SolicitudPlan $solicitud): JsonResponse
+    {
+        $datos = $request->validate([
+            'empresas_conservar' => ['present', 'nullable', 'array', 'max:500'],
+            'empresas_conservar.*' => ['integer'],
+        ]);
+
+        try {
+            $sol = app(BajaPlanService::class)->capturarEmpresas($solicitud, $datos['empresas_conservar']);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        Auditoria::registrar('cambio_plan.empresas_capturadas', null, $sol->suscripcion, null,
+            ['solicitud_plan_id' => $sol->id, 'empresas_conservar' => $sol->empresas_conservar]);
+
+        return response()->json(['data' => $this->presenter->solicitudPlan($sol->fresh(['solicitante:id,nombre', 'resolutor:id,nombre']))]);
     }
 
     public function cancelar(Request $request, SolicitudPlan $solicitud): JsonResponse

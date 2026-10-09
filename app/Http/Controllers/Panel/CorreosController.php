@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Panel;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AvisoCambioPlanMail;
+use App\Mail\PlanAjustadoMail;
 use App\Mail\CartaFiniquitoMail;
 use App\Mail\ClaveRespaldoMail;
 use App\Mail\MensajeKernia;
@@ -25,6 +26,7 @@ class CorreosController extends Controller
     /** @var list<class-string<MensajeKernia>> */
     private const PLANTILLAS = [
         AvisoCambioPlanMail::class,
+        PlanAjustadoMail::class,
         CartaFiniquitoMail::class,
         ClaveRespaldoMail::class,
         RecordatorioDescargaMail::class,

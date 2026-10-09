@@ -2,6 +2,7 @@
 namespace App\Services\Correo;
 
 use App\Mail\AvisoCambioPlanMail;
+use App\Mail\PlanAjustadoMail;
 use App\Models\Landlord\CorreoEnviado;
 use App\Models\Landlord\LandlordAdmin;
 use App\Models\Landlord\SolicitudPlan;
@@ -52,6 +53,32 @@ class AvisosCliente
             array_map($nombreModulo, $vista['modulos_pierde']), $limites,
             $this->asesor($s),
         );
+        $contexto = ['cliente_id' => $s->cliente_id, 'suscripcion_id' => $s->id, 'referencia' => "solicitud_plan:{$sol->id}"];
+
+        return $this->correo->enviarA($mensaje, [$s->admin_email, ...$this->copias($s)], $contexto);
+    }
+
+    /**
+     * 09-oct-2026: la baja v2.2 ya se aplicó. Lista las empresas disponibles y
+     * las bloqueadas por el plan, con los nombres que reporta la app.
+     *
+     * @return list<CorreoEnviado>
+     */
+    public function planAjustado(SolicitudPlan $sol): array
+    {
+        $s = $sol->suscripcion->loadMissing(['cliente.operadores', 'producto']);
+        if (! $s->cliente->esComercial()) {
+            return [];
+        }
+
+        $empresas = collect(app(\App\Services\Landlord\BajaPlanService::class)->empresas($s)['data'] ?? []);
+        $forma = fn ($e) => ['rfc' => $e['rfc'] ?? null, 'nombre' => $e['nombre']];
+        $bloqueadas = $empresas->whereIn('id', $sol->empresas_bloqueadas ?? [])->map($forma)->values()->all();
+        $disponibles = $empresas->whereIn('estado', ['activa', 'inactiva'])->map($forma)->values()->all();
+
+        $mensaje = new PlanAjustadoMail($s->cliente->nombre, $s->producto->nombre,
+            $s->producto->planVigente($sol->plan_nuevo)?->nombre ?? $sol->plan_nuevo,
+            $disponibles, $bloqueadas, $sol->empresas_conservar === null, $this->asesor($s));
         $contexto = ['cliente_id' => $s->cliente_id, 'suscripcion_id' => $s->id, 'referencia' => "solicitud_plan:{$sol->id}"];
 
         return $this->correo->enviarA($mensaje, [$s->admin_email, ...$this->copias($s)], $contexto);

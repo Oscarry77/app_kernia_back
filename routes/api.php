@@ -8,6 +8,7 @@ use App\Http\Controllers\Panel\CambiosPlanController;
 use App\Http\Controllers\Panel\CatalogoController;
 use App\Http\Controllers\Panel\ClientesController;
 use App\Http\Controllers\Panel\CorreosController;
+use App\Http\Controllers\Panel\EmpresasClienteController;
 use App\Http\Controllers\Panel\FormularioSalidaController;
 use App\Http\Controllers\Panel\SalidasController;
 use App\Http\Controllers\Panel\SuscripcionesController;
@@ -62,6 +63,7 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::get('suscripciones/{suscripcion}/cambios-plan', [CambiosPlanController::class, 'index']);
         Route::get('suscripciones/{suscripcion}/salidas', [SalidasController::class, 'index']);
         Route::get('catalogo/motivos-salida', [FormularioSalidaController::class, 'motivos']);
+        Route::get('suscripciones/{suscripcion}/empresas', [EmpresasClienteController::class, 'index']);
     });
 
     Route::post('clientes', [ClientesController::class, 'store'])->middleware('permiso:clientes.crear');
@@ -96,6 +98,9 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::post('cambios-plan/{solicitud}/resolver', [CambiosPlanController::class, 'resolver']);
         Route::post('cambios-plan/{solicitud}/cancelar', [CambiosPlanController::class, 'cancelar']);
         Route::get('cambios-plan/pendientes', [CambiosPlanController::class, 'pendientes']);
+        // 09-oct-2026: baja v2.2 — lista de empresas que conserva el cliente y desbloqueo con auditoría de licencia.
+        Route::put('cambios-plan/{solicitud}/empresas', [CambiosPlanController::class, 'empresas']);
+        Route::post('suscripciones/{suscripcion}/empresas/desbloquear', [EmpresasClienteController::class, 'desbloquear']);
     });
     Route::patch('suscripciones/{suscripcion}/plan', [SuscripcionesController::class, 'cambiarPlan'])->middleware('permiso:planes.aplicar_directo');
 

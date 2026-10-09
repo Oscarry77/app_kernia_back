@@ -101,7 +101,7 @@ class CentroCorreoTest extends TestCase
             ->assertJsonPath('data.0.plantilla_nombre', 'Contraseña de acceso de un operador');
 
         $plantillas = $this->withHeaders($this->como($direccion))->getJson('/api/correos/plantillas')->assertOk()->json('data');
-        $this->assertCount(6, $plantillas);
+        $this->assertCount(7, $plantillas);
         foreach ($plantillas as $p) {
             $html = $this->withHeaders($this->como($direccion))->get("/api/correos/plantillas/{$p['clave']}/vista-previa")->assertOk()->getContent();
             $this->assertStringContainsString('Kernia', $html, $p['clave']);

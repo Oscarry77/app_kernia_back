@@ -30,6 +30,7 @@ class PanelPresenter
             'descripcion' => $p->descripcion,
             'permite_ws_cntpaq' => (bool) $p->permite_ws_cntpaq,
             'estatus_salida' => (bool) $p->estatus_salida,
+            'empresas_v22' => (bool) $p->empresas_v22,
             'modo_datos' => $p->modo_datos,
             'modulos' => $p->modulos()->orderBy('id')->get(['clave', 'nombre', 'requiere'])->toArray(),
             'planes' => $p->planes()->when(! $completo, fn ($q) => $q->where('activo', true))->orderBy('orden')->get()
@@ -187,6 +188,14 @@ class PanelPresenter
             'solicitada_en' => $sol->created_at?->toIso8601String(),
             'resuelta_en' => $sol->resuelta_en?->toIso8601String(),
             'aplicada_en' => $sol->aplicada_en?->toIso8601String(),
+            // 09-oct-2026: baja v2.2
+            'empresas_conservar' => $sol->empresas_conservar,
+            'fase' => $sol->fase,
+            'fase_desde' => $sol->fase_desde?->toIso8601String(),
+            'respaldo_id' => $sol->respaldo_id,
+            'empresas_bloqueadas' => $sol->empresas_bloqueadas,
+            'max_empresas_nuevo' => ($plan = $producto->planVigente($sol->plan_nuevo))
+                ? ($this->planes->limitesConPlan($sol->suscripcion, $plan)['max_empresas'] ?? null) : null,
         ];
     }
 }

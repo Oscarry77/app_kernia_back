@@ -24,6 +24,7 @@ class Producto extends Model
         'descripcion',
         'permite_ws_cntpaq',
         'estatus_salida',
+        'empresas_v22',
     ];
 
     protected $hidden = [
@@ -35,6 +36,8 @@ class Producto extends Model
         'permite_ws_cntpaq' => 'boolean',
         // 08-oct-2026: la app confirmó que reconoce retirado/en_finiquito/finiquitado (v2.3 §4.1).
         'estatus_salida' => 'boolean',
+        // 09-oct-2026: la app cumple v2.2 (lista de empresas, en_mantenimiento, ajuste-plan, desbloquear).
+        'empresas_v22' => 'boolean',
     ];
 
     public function modulos(): HasMany

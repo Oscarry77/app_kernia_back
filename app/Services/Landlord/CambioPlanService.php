@@ -80,10 +80,16 @@ class CambioPlanService
             'limites_despues' => $limitesDespues,
             'limites_reducidos' => $reduce,
             'fecha_proximo_pago' => $s->fecha_proximo_pago?->toDateString(),
+            // 09-oct-2026: la app entrega su lista de empresas (v2.2): el asesor elige cuáles conserva.
+            'usa_v22' => (bool) $producto->empresas_v22,
         ];
     }
 
-    public function solicitar(Suscripcion $s, string $codigo, string $aplicacion, string $motivo, LandlordAdmin $solicitante, ?string $motivoSalida = null): SolicitudPlan
+    /**
+     * @param list<int>|null $empresasConservar 09-oct-2026: en una baja con una app v2.2, las empresas
+     *                                          que conserva el cliente; null = aún no decide.
+     */
+    public function solicitar(Suscripcion $s, string $codigo, string $aplicacion, string $motivo, LandlordAdmin $solicitante, ?string $motivoSalida = null, ?array $empresasConservar = null): SolicitudPlan
     {
         if ($s->estatus !== Suscripcion::ESTATUS_ACTIVO) {
             throw new RuntimeException('Solo se cambia el plan de una suscripción activa.');
@@ -112,8 +118,12 @@ class CambioPlanService
         if ($direccion === SolicitudPlan::BAJADA) {
             $formularios->validarMotivoAsesor($motivoSalida, $motivo);
         }
+        $bajas = app(BajaPlanService::class);
+        $empresasConservar = $direccion === SolicitudPlan::BAJADA && $bajas->usaV22($s)
+            ? $bajas->validarLista($s, $vista['plan_nuevo'], $empresasConservar)
+            : null;
 
-        return DB::transaction(function () use ($s, $vista, $direccion, $aplicacion, $motivo, $solicitante, $motivoSalida, $formularios) {
+        return DB::transaction(function () use ($s, $vista, $direccion, $aplicacion, $motivo, $solicitante, $motivoSalida, $formularios, $empresasConservar) {
             $sol = SolicitudPlan::create([
                 'suscripcion_id' => $s->id,
                 'plan_actual' => $s->plan,
@@ -121,6 +131,7 @@ class CambioPlanService
                 'direccion' => $direccion,
                 'aplicacion' => $aplicacion,
                 'motivo' => trim($motivo),
+                'empresas_conservar' => $empresasConservar,
                 'estado' => SolicitudPlan::SOLICITADA,
                 'solicitada_por' => $solicitante->id,
             ]);
@@ -207,7 +218,8 @@ class CambioPlanService
 
     public function cancelar(SolicitudPlan $sol, string $motivo): SolicitudPlan
     {
-        if (! in_array($sol->estado, SolicitudPlan::ABIERTAS, true)) {
+        // Una baja en ejecución (aviso, mantenimiento, ajuste) ya no se cancela: termina o se revierte sola.
+        if (! in_array($sol->estado, [SolicitudPlan::SOLICITADA, SolicitudPlan::PROGRAMADA], true)) {
             throw new RuntimeException('Solo se cancela una solicitud pendiente o programada.');
         }
         if (! trim($motivo)) {
@@ -231,8 +243,33 @@ class CambioPlanService
             ->where('estado', SolicitudPlan::PROGRAMADA)
             ->whereDate('fecha_efectiva', '<=', VigenciaService::hoy()->toDateString())
             ->orderBy('id')->get()
-            ->map(fn (SolicitudPlan $sol) => $this->aplicar($sol))
+            ->map(fn (SolicitudPlan $sol) => $this->aplicarOIniciar($sol))
             ->all();
+    }
+
+    /**
+     * 09-oct-2026: una baja con una app v2.2 que deja al cliente con más
+     * empresas de las permitidas no se aplica de golpe: arranca la
+     * orquestación (aviso → mantenimiento → ajuste-plan). Si la app no
+     * responde para saberlo, la solicitud sigue programada y se reintenta en
+     * el siguiente corte (cada hora).
+     */
+    private function aplicarOIniciar(SolicitudPlan $sol): SolicitudPlan
+    {
+        $bajas = app(BajaPlanService::class);
+        if ($sol->direccion !== SolicitudPlan::BAJADA || ! $bajas->usaV22($sol->suscripcion)) {
+            return $this->aplicar($sol);
+        }
+
+        try {
+            $requiere = $bajas->requiereAjuste($sol);
+        } catch (\Throwable $e) {
+            $sol->update(['error' => mb_substr('No se pudo consultar las empresas en la app; se reintenta: '.$e->getMessage(), 0, 300)]);
+
+            return $sol->fresh();
+        }
+
+        return $requiere ? $bajas->iniciar($sol) : $this->aplicar($sol);
     }
 
     /**
