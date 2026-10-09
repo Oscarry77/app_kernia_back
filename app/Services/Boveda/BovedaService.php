@@ -105,6 +105,19 @@ class BovedaService
         ]);
     }
 
+    /** (09-oct-2026) Purga un secreto antes de su fecha (p. ej. al eliminar el respaldo del finiquito). */
+    public function purgar(string $clave, string $motivo): bool
+    {
+        $secreto = BovedaSecreto::where('clave', $clave)->whereNull('purgado_en')->first();
+        if (! $secreto) {
+            return false;
+        }
+        $secreto->forceFill(['valor' => null, 'purgado_en' => now()])->saveQuietly();
+        $this->registrar($secreto, 'purgado', null, $motivo);
+
+        return true;
+    }
+
     /**
      * Purga los secretos vencidos: borra el valor y conserva el registro.
      * Idempotente; lo corre el programador cada día.

@@ -147,6 +147,13 @@ class PanelPresenter
                 'retencion_hasta' => $e->retencion_hasta?->toDateString(),
                 'carta_enviada_en' => $e->carta_enviada_en?->toIso8601String(), 'clave_enviada_en' => $e->clave_enviada_en?->toIso8601String(),
                 'recordatorios' => $e->recordatorios ?? [], 'error' => $e->error,
+                'eliminacion' => $e->eliminacion, 'eliminada_en' => $e->eliminada_en?->toIso8601String(),
+                // 09-oct-2026: solicitudes de soporte abiertas (reenvío de contraseña, entrega a soporte).
+                'solicitudes' => \App\Models\Landlord\SolicitudRespaldo::with('solicitante:id,nombre')->where('exportacion_id', $e->id)
+                    ->whereIn('estado', ['solicitada', 'autorizada'])->orderBy('id')->get()
+                    ->map(fn ($r) => ['id' => $r->id, 'tipo' => $r->tipo, 'estado' => $r->estado, 'motivo' => $r->motivo,
+                        'solicitada_por' => $r->solicitante?->nombre, 'solicitada_por_id' => $r->solicitada_por,
+                        'vigente_hasta' => $r->vigente_hasta?->toIso8601String()])->all(),
             ] : null,
         ];
     }

@@ -192,6 +192,54 @@ class ProductoAppClient
         return $this->asegurarJson($respuesta, $producto, 'exportaciones');
     }
 
+    /** DELETE …/exportaciones/{id} (v2.3 §4.4). 204, o 404 si ya no existe: ambos cuentan como borrado. */
+    public function eliminarExportacion(Suscripcion $suscripcion, string $exportacionId): void
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto, ['Idempotency-Key' => "eliminar-exportacion-{$exportacionId}"])->timeout(30)
+            ->delete($this->url($producto, "clientes/{$suscripcion->cliente->slug}/exportaciones/".rawurlencode($exportacionId)));
+
+        if ($respuesta->status() !== 404 && ($respuesta->failed() || $respuesta->status() >= 300)) {
+            throw new RuntimeException("La app no borró la exportación ({$respuesta->status()}).");
+        }
+    }
+
+    /** POST …/finiquito/eliminar (v2.3 §4.6). @return int código HTTP */
+    public function eliminarFiniquito(Suscripcion $suscripcion, int $solicitudId): int
+    {
+        $producto = $suscripcion->producto;
+
+        return $this->cliente($producto, ['Idempotency-Key' => "finiquito-eliminar-{$solicitudId}"])->timeout(30)
+            ->post($this->url($producto, "clientes/{$suscripcion->cliente->slug}/finiquito/eliminar"), ['solicitud_id' => $solicitudId])
+            ->status();
+    }
+
+    /** GET …/finiquito/eliminar → {status: processing|ready|failed} */
+    public function estadoEliminarFiniquito(Suscripcion $suscripcion): array
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto)->timeout(20)->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/finiquito/eliminar"));
+
+        return $this->asegurarJson($respuesta, $producto, 'finiquito/eliminar');
+    }
+
+    /**
+     * GET …/exportaciones/{id}/archivo (v2.3 §4.3): el 7z cifrado, en flujo.
+     * Kernia lo pasa al operador SIN guardarlo.
+     */
+    public function archivoExportacion(Suscripcion $suscripcion, string $exportacionId, int $solicitudId): \Psr\Http\Message\StreamInterface
+    {
+        $producto = $suscripcion->producto;
+        $respuesta = $this->cliente($producto, ['X-Solicitud-Id' => (string) $solicitudId])->timeout(600)->withOptions(['stream' => true])
+            ->get($this->url($producto, "clientes/{$suscripcion->cliente->slug}/exportaciones/".rawurlencode($exportacionId).'/archivo'));
+
+        if ($respuesta->failed() || $respuesta->status() !== 200) {
+            throw new RuntimeException("La app no entregó el archivo ({$respuesta->status()}).");
+        }
+
+        return $respuesta->toPsrResponse()->getBody();
+    }
+
     /** Nunca lanza -- degrada a {ok:false} (guía §4.2). */
     public function metricas(Suscripcion $suscripcion): array
     {

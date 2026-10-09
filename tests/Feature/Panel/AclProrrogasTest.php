@@ -70,7 +70,7 @@ class AclProrrogasTest extends TestCase
 
         $this->withHeaders($this->como($vendedor))->getJson('/api/auth/me')
             ->assertJsonPath('rol', 'vendedor')->assertJsonPath('cartera', true)
-            ->assertJsonPath('permisos', ['clientes.ver', 'clientes.crear', 'clientes.editar', 'prorrogas.solicitar', 'planes.solicitar', 'salidas.solicitar']);
+            ->assertJsonPath('permisos', ['clientes.ver', 'clientes.crear', 'clientes.editar', 'prorrogas.solicitar', 'planes.solicitar', 'salidas.solicitar', 'respaldos.solicitar']);
 
         // Desactivado: pierde el acceso aunque su token siga vigente
         $vendedor->update(['activo' => false]);

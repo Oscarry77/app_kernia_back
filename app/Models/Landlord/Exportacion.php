@@ -24,8 +24,14 @@ class Exportacion extends Model
     protected $fillable = [
         'suscripcion_id', 'solicitud_salida_id', 'motivo', 'alcance', 'empresas', 'intento', 'exportacion_app', 'estado',
         'tamano_bytes', 'sha256', 'conteos', 'disponible_hasta', 'descargada_en', 'retencion_hasta',
-        'carta_enviada_en', 'clave_enviada_en', 'recordatorios', 'error', 'revisada_en',
+        'carta_enviada_en', 'clave_enviada_en', 'recordatorios', 'error', 'revisada_en', 'eliminacion', 'eliminada_en',
     ];
+
+    // Pasos de la eliminación al terminar la retención (09-oct-2026, v2.3 §4.4 y §4.6).
+    public const ELIM_EXPORTACION_BORRADA = 'exportacion_borrada';
+    public const ELIM_APP_ELIMINANDO = 'app_eliminando';
+    public const ELIM_BASE_BORRADA = 'base_borrada';
+    public const ELIM_COMPLETA = 'completa';
 
     protected $casts = [
         'empresas' => 'array',
@@ -37,6 +43,7 @@ class Exportacion extends Model
         'carta_enviada_en' => 'datetime',
         'clave_enviada_en' => 'datetime',
         'revisada_en' => 'datetime',
+        'eliminada_en' => 'datetime',
     ];
 
     public function suscripcion(): BelongsTo

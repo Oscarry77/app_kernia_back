@@ -17,6 +17,7 @@ use App\Services\Correo\AvisosCliente;
 use App\Services\Correo\CentroCorreo;
 use App\Services\Seguridad\GeneradorPassword;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -33,7 +34,10 @@ use Throwable;
  *    a Dirección, sin contraseña) y, en un correo aparte, solo la contraseña.
  *  - Recordatorios de descarga 7 y 2 días antes del plazo, si no ha descargado.
  *  - Al vencer el plazo (15 días): `finiquitado`, con retención de 90 días.
- *    La eliminación al terminar la retención es la siguiente pieza (4b).
+ *  - (4b) Al terminar la retención: la app borra la exportación (§4.4) y luego
+ *    todo lo del cliente (§4.6); en el patrón A, Kernia borra después la base y
+ *    su usuario (EliminadorBases). La suscripción queda `eliminado`, se purga
+ *    la contraseña de la bóveda y queda la constancia en la bitácora.
  */
 class ExportacionService
 {
@@ -70,6 +74,8 @@ class ExportacionService
      */
     public function avanzar(): array
     {
+        $this->eliminarVencidas();
+
         return Exportacion::with('suscripcion.producto', 'suscripcion.cliente')
             ->whereIn('estado', [Exportacion::PENDIENTE, Exportacion::PROCESSING, Exportacion::READY])
             ->orderBy('id')->get()
@@ -128,6 +134,78 @@ class ExportacionService
         }
 
         return $resultado;
+    }
+
+    /**
+     * (4b) Avanza la eliminación de los finiquitos cuya retención ya terminó.
+     * Un paso por vuelta; idempotente. Un error no cambia el paso: se reintenta.
+     */
+    public function eliminarVencidas(): void
+    {
+        $vencidas = Exportacion::with('suscripcion.producto', 'suscripcion.cliente')
+            ->where('motivo', Exportacion::MOTIVO_FINIQUITO)->where('estado', Exportacion::READY)
+            ->whereNotNull('retencion_hasta')->whereDate('retencion_hasta', '<', VigenciaService::hoy()->toDateString())
+            ->where(fn ($q) => $q->whereNull('eliminacion')->orWhere('eliminacion', '!=', Exportacion::ELIM_COMPLETA))
+            ->whereHas('suscripcion', fn ($q) => $q->where('estatus', Suscripcion::ESTATUS_FINIQUITADO))->get();
+
+        foreach ($vencidas as $exp) {
+            try {
+                $this->pasoEliminacion($exp);
+            } catch (Throwable $e) {
+                $exp->update(['error' => mb_substr('Eliminación: '.$e->getMessage(), 0, 300)]);
+                Log::warning('exportacion.eliminacion_reintento', ['exportacion_id' => $exp->id, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    private function pasoEliminacion(Exportacion $exp): void
+    {
+        $s = $exp->suscripcion;
+        switch ($exp->eliminacion) {
+            case null:
+                $this->app->eliminarExportacion($s, $exp->exportacion_app);
+                $exp->update(['eliminacion' => Exportacion::ELIM_EXPORTACION_BORRADA, 'error' => null]);
+                Auditoria::registrar('exportacion.eliminada', null, $s, null, ['exportacion_id' => $exp->id, 'sha256' => $exp->sha256]);
+
+                return;
+            case Exportacion::ELIM_EXPORTACION_BORRADA:
+                $codigo = $this->app->eliminarFiniquito($s, $exp->id);
+                if (! in_array($codigo, [200, 202], true)) {
+                    throw new RuntimeException("La app no aceptó la eliminación del finiquito ({$codigo}).");
+                }
+                $exp->update(['eliminacion' => Exportacion::ELIM_APP_ELIMINANDO, 'error' => null]);
+
+                return;
+            case Exportacion::ELIM_APP_ELIMINANDO:
+                $estado = $this->app->estadoEliminarFiniquito($s)['status'] ?? null;
+                if ($estado === 'failed') {
+                    throw new RuntimeException('La app reportó que no pudo eliminar los datos del cliente.');
+                }
+                if ($estado !== 'ready') {
+                    return;
+                }
+                // Patrón A: la base la creó Kernia y la borra Kernia, después de la app.
+                $base = $s->producto->esDedicada() ? app(EliminadorBases::class)->eliminar($s) : null;
+                $exp->update(['eliminacion' => Exportacion::ELIM_BASE_BORRADA, 'error' => null]);
+                if ($base) {
+                    Auditoria::registrar('suscripcion.base_eliminada', null, $s, null, ['exportacion_id' => $exp->id, ...$base]);
+                }
+
+                return;
+            case Exportacion::ELIM_BASE_BORRADA:
+                $this->boveda->purgar($exp->claveBoveda(), 'Terminó la retención del respaldo del finiquito');
+                // `eliminado` no se notifica a la app: ella ya borró todo lo del cliente (v2.3 §4.6).
+                $s->update(['estatus' => Suscripcion::ESTATUS_ELIMINADO, 'estatus_por_notificar' => null]);
+                $exp->update(['eliminacion' => Exportacion::ELIM_COMPLETA, 'eliminada_en' => now(), 'error' => null]);
+                // Constancia (registro mínimo del patrón A, v2.3 §4.6): quién, cuándo y la huella de la última exportación.
+                Auditoria::registrar('suscripcion.eliminada', null, $s->fresh(), ['estatus' => Suscripcion::ESTATUS_FINIQUITADO], [
+                    'estatus' => Suscripcion::ESTATUS_ELIMINADO, 'cliente_id' => $s->cliente_id, 'producto' => $s->producto->slug,
+                    'exportacion_id' => $exp->id, 'sha256' => $exp->sha256, 'descargada_en' => $exp->descargada_en?->toIso8601String(),
+                    'retencion_hasta' => $exp->retencion_hasta->toDateString(), 'eliminada_en' => now()->toIso8601String(),
+                ]);
+
+                return;
+        }
     }
 
     // ── Pasos ──

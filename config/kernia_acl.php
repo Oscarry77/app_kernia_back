@@ -12,22 +12,22 @@ return [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
-            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar', 'salidas.solicitar',
+            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar', 'salidas.solicitar', 'respaldos.solicitar',
             'catalogo.gestionar', 'escalafon.gestionar', 'operadores.gestionar', 'auditoria.ver', 'correos.ver', 'salidas.motivos',
         ]],
         'gerente' => ['nombre' => 'Gerente', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
             'suscripciones.gestionar', 'suscripciones.estatus', 'suscripciones.restablecer_admin',
             'vigencias.gestionar', 'pagos.registrar',
-            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar', 'salidas.solicitar',
+            'prorrogas.solicitar', 'prorrogas.autorizar', 'planes.solicitar', 'salidas.solicitar', 'respaldos.solicitar',
             'operadores.gestionar', 'correos.ver',
         ]],
         'vendedor' => ['nombre' => 'Vendedor', 'permisos' => [
             'clientes.ver', 'clientes.crear', 'clientes.editar',
-            'prorrogas.solicitar', 'planes.solicitar', 'salidas.solicitar',
+            'prorrogas.solicitar', 'planes.solicitar', 'salidas.solicitar', 'respaldos.solicitar',
         ]],
         'soporte' => ['nombre' => 'Soporte', 'permisos' => [
-            'clientes.ver', 'suscripciones.restablecer_admin',
+            'clientes.ver', 'suscripciones.restablecer_admin', 'respaldos.solicitar',
         ]],
     ],
 

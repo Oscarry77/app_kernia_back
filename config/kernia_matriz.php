@@ -34,6 +34,7 @@ return [
                             ['etiqueta' => 'Solicitar cambio de plan y desbloquear empresas', 'permiso' => 'planes.solicitar'],
                             ['etiqueta' => 'Cambio directo de plan (correcciones)', 'permiso' => 'planes.aplicar_directo'],
                             ['etiqueta' => 'Solicitar retiro, reactivación o finiquito', 'permiso' => 'salidas.solicitar'],
+                            ['etiqueta' => 'Solicitar reenvío de la contraseña o entrega del respaldo', 'permiso' => 'respaldos.solicitar'],
                         ]],
                     ['etiqueta' => 'Vigencias', 'icono' => 'calendario', 'ruta' => '/vigencias',
                         'permisos' => ['acceso' => 'clientes.ver', 'editar' => 'vigencias.gestionar'],

@@ -11,6 +11,7 @@ use App\Http\Controllers\Panel\CorreosController;
 use App\Http\Controllers\Panel\EmpresasClienteController;
 use App\Http\Controllers\Panel\FormularioSalidaController;
 use App\Http\Controllers\Panel\MatrizController;
+use App\Http\Controllers\Panel\RespaldosController;
 use App\Http\Controllers\Panel\SalidasController;
 use App\Http\Controllers\Panel\SuscripcionesController;
 use App\Http\Controllers\Panel\AuditoriaController;
@@ -117,6 +118,17 @@ Route::middleware(['auth:api', 'cartera'])->group(function () {
         Route::post('salidas/{salida}/cancelar', [SalidasController::class, 'cancelar']);
         Route::get('salidas/pendientes', [SalidasController::class, 'pendientes']);
         Route::post('suscripciones/{suscripcion}/formulario-salida/enlace', [FormularioSalidaController::class, 'generarEnlace']);
+    });
+
+    // Soporte sobre un respaldo (09-oct-2026): reenviar la contraseña o entregar el 7z, con autorización del escalafón.
+    Route::middleware('permiso:respaldos.solicitar')->group(function () {
+        Route::get('respaldos/pendientes', [RespaldosController::class, 'pendientes']);
+        Route::get('exportaciones/{exportacion}/solicitudes', [RespaldosController::class, 'index']);
+        Route::post('exportaciones/{exportacion}/solicitudes', [RespaldosController::class, 'solicitar']);
+        Route::post('respaldos/{respaldo}/resolver', [RespaldosController::class, 'resolver']);
+        Route::post('respaldos/{respaldo}/cancelar', [RespaldosController::class, 'cancelar']);
+        Route::post('respaldos/{respaldo}/reintentar', [RespaldosController::class, 'reintentar']);
+        Route::get('respaldos/{respaldo}/archivo', [RespaldosController::class, 'archivo']);
     });
     Route::get('motivos-salida', [FormularioSalidaController::class, 'index'])->middleware('permiso:salidas.motivos');
 

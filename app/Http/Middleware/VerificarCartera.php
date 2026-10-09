@@ -5,6 +5,8 @@ use App\Models\Landlord\Cliente;
 use App\Models\Landlord\Prorroga;
 use App\Models\Landlord\SolicitudPlan;
 use App\Models\Landlord\SolicitudSalida;
+use App\Models\Landlord\Exportacion;
+use App\Models\Landlord\SolicitudRespaldo;
 use App\Models\Landlord\Suscripcion;
 use Closure;
 use Illuminate\Http\Request;
@@ -35,6 +37,8 @@ class VerificarCartera
             $route?->parameter('prorroga') instanceof Prorroga => $route->parameter('prorroga')->suscripcion->cliente,
             $route?->parameter('solicitud') instanceof SolicitudPlan => $route->parameter('solicitud')->suscripcion->cliente,
             $route?->parameter('salida') instanceof SolicitudSalida => $route->parameter('salida')->suscripcion->cliente,
+            $route?->parameter('exportacion') instanceof Exportacion => $route->parameter('exportacion')->suscripcion->cliente,
+            $route?->parameter('respaldo') instanceof SolicitudRespaldo => $route->parameter('respaldo')->suscripcion->cliente,
             default => null,
         };
 
